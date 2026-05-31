@@ -13,7 +13,7 @@ import workDaysRouter from './modules/work-days/work-days.router'
 const app = express()
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
-app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
+app.use(cors({ origin: true, credentials: true }))
 app.use(express.json())
 app.use('/uploads', express.static(path.resolve(env.UPLOAD_DIR)))
 
