@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ampere-point-postgres
+    environment:
+      POSTGRES_USER: ampere
+      POSTGRES_PASSWORD: ampere123
+      POSTGRES_DB: ampere_point
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - ampere-point-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ampere"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ampere-point-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DATABASE_URL: postgresql://ampere:ampere123@postgres:5432/ampere_point
+      JWT_SECRET: ${JWT_SECRET:-ampere-point-jwt-secret-2024}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8081}
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "3002:3002"
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ampere-point-net
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3002}
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-http://localhost:3002}
+    container_name: ampere-point-frontend
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+    networks:
+      - ampere-point-net
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  uploads_data:
+
+networks:
+  ampere-point-net:
+    driver: bridge

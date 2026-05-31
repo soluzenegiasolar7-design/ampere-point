@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum PunchType {
+  ENTRADA
+  SAIDA_ALMOCO
+  RETORNO_ALMOCO
+  SAIDA
+}
+
+enum WorkStatus {
+  PENDENTE
+  EM_SERVICO
+  FORA
+}
+
+model User {
+  id           String      @id @default(uuid())
+  name         String
+  email        String      @unique
+  passwordHash String
+  role         UserRole    @default(EMPLOYEE)
+  unit         String?
+  cpf          String?     @unique
+  pis          String?     @unique
+  phone        String?
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  timeEntries  TimeEntry[]
+  gpsLogs      GpsLog[]
+  workDays     WorkDay[]
+
+  @@map("users")
+}
+
+model TimeEntry {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  type       PunchType
+  timestamp  DateTime  @default(now())
+  latitude   Float
+  longitude  Float
+  accuracy   Float?
+  photoUrl   String?
+  address    String?
+  ipAddress  String?
+  deviceInfo String?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, timestamp])
+  @@map("time_entries")
+}
+
+model GpsLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  latitude  Float
+  longitude Float
+  accuracy  Float?
+  speed     Float?
+  timestamp DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@map("gps_logs")
+}
+
+model WorkDay {
+  id           String     @id @default(uuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  date         DateTime
+  totalKm      Float      @default(0)
+  totalMinutes Int        @default(0)
+  status       WorkStatus @default(PENDENTE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([userId, date])
+  @@map("work_days")
+}
