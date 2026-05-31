@@ -1,0 +1,5 @@
+node_modules
+dist
+.env
+prisma.config.ts
+*.config.ts
