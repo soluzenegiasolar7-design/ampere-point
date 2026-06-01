@@ -6,6 +6,8 @@ import { useLocationStore } from '../../stores/location.store'
 import { useSocket } from '../../hooks/useSocket'
 import { api } from '../../services/api'
 import { useAuthStore } from '../../stores/auth.store'
+import NewEmployeeModal from './NewEmployeeModal'
+import EmployeePunchesModal from './EmployeePunchesModal'
 
 // Fix leaflet icons
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -34,10 +36,12 @@ export default function MapPage() {
   const [workDays, setWorkDays] = useState<any[]>([])
   const [selectedTrail, setSelectedTrail] = useState<[number, number][] | null>(null)
   const [selectedUser, setSelectedUser] = useState<string | null>(null)
+  const [showNewEmployee, setShowNewEmployee] = useState(false)
+  const [selectedPunchEmployee, setSelectedPunchEmployee] = useState<any | null>(null)
 
   useSocket(user?.role)
 
-  useEffect(() => {
+  const loadData = () => {
     Promise.all([
       api.get('/api/users'),
       api.get('/api/work-days/today'),
@@ -45,7 +49,9 @@ export default function MapPage() {
       setEmployees(usersRes.data.filter((u: any) => u.role === 'EMPLOYEE'))
       setWorkDays(wdRes.data)
     })
-  }, [])
+  }
+
+  useEffect(() => { loadData() }, [])
 
   const loadTrail = async (userId: string) => {
     if (selectedUser === userId) { setSelectedTrail(null); setSelectedUser(null); return }
@@ -61,6 +67,18 @@ export default function MapPage() {
 
   return (
     <div className="h-screen bg-gray-950 flex flex-col">
+      {showNewEmployee && (
+        <NewEmployeeModal
+          onClose={() => setShowNewEmployee(false)}
+          onCreated={loadData}
+        />
+      )}
+      {selectedPunchEmployee && (
+        <EmployeePunchesModal
+          employee={selectedPunchEmployee}
+          onClose={() => setSelectedPunchEmployee(null)}
+        />
+      )}
       {/* Header */}
       <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex justify-between items-center shrink-0">
         <div>
@@ -77,7 +95,15 @@ export default function MapPage() {
         {/* Sidebar */}
         <div className="w-72 bg-gray-900 border-r border-gray-800 overflow-y-auto shrink-0">
           <div className="p-3">
-            <p className="text-gray-400 text-xs uppercase tracking-wider mb-3 font-semibold">Funcionários Hoje</p>
+            <div className="flex justify-between items-center mb-3">
+              <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Funcionários Hoje</p>
+              <button
+                onClick={() => setShowNewEmployee(true)}
+                className="text-xs bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded-lg font-semibold transition-colors"
+              >
+                + Novo
+              </button>
+            </div>
             {employees.map((emp) => {
               const wd = getWorkDay(emp.id)
               const loc = getLoc(emp.id)
@@ -110,6 +136,12 @@ export default function MapPage() {
                       Última pos: {formatTime(loc.timestamp)}
                     </p>
                   )}
+                  <button
+                    onClick={e => { e.stopPropagation(); setSelectedPunchEmployee(emp) }}
+                    className="mt-2 w-full text-center text-xs text-blue-400 hover:text-blue-300 bg-gray-700/50 hover:bg-gray-700 py-1 rounded-lg transition-colors"
+                  >
+                    📋 Ver pontos e fotos
+                  </button>
                 </button>
               )
             })}
