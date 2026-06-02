@@ -68,6 +68,21 @@ export default function MapPage() {
     setEmployees(u.data.filter((x: any) => x.role === 'EMPLOYEE'))
     setWorkDays(w.data)
     setAllPunches(p.data)
+
+    // inicializa pins com a coordenada do ponto mais recente de cada funcionário
+    // p.data vem ordenado desc, então o primeiro por usuário é o mais recente
+    const seen = new Set<string>()
+    for (const entry of p.data) {
+      const uid = entry.user?.id ?? entry.userId
+      if (!uid || seen.has(uid)) continue
+      seen.add(uid)
+      useLocationStore.getState().updateLocation(uid, {
+        latitude: entry.latitude,
+        longitude: entry.longitude,
+        accuracy: entry.accuracy,
+        timestamp: entry.timestamp,
+      })
+    }
   }
 
   useEffect(() => { loadData() }, [])
