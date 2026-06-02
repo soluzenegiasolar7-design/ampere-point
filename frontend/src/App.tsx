@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/auth.store'
 import LoginPage from './pages/Login/LoginPage'
 import PunchPage from './pages/Employee/PunchPage'
@@ -20,13 +20,13 @@ export default function App() {
   }, [])
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/ponto" element={<ProtectedRoute roles={['EMPLOYEE']}><PunchPage /></ProtectedRoute>} />
         <Route path="/gestor" element={<ProtectedRoute roles={['ADMIN', 'MANAGER']}><MapPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
