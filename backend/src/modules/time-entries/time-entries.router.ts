@@ -3,16 +3,11 @@ import { z } from 'zod'
 import { punch, listTodayEntries, listAllTodayEntries, listEntriesByDate, nextPunchType } from './time-entries.service'
 import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
 import multer from 'multer'
-import path from 'path'
-import { v4 as uuid } from 'uuid'
-import { env } from '../../config/env'
 import { getIo } from '../../socket/io'
+import { prisma } from '../../config/database'
 
-const storage = multer.diskStorage({
-  destination: env.UPLOAD_DIR,
-  filename: (_req, file, cb) => cb(null, uuid() + path.extname(file.originalname)),
-})
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } })
+// foto em memória → salva no banco como bytes
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 
 const router = Router()
 router.use(requireAuth)
@@ -28,12 +23,24 @@ const punchSchema = z.object({
 router.post('/', upload.single('photo'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = punchSchema.parse(req.body)
-    const photoUrl = req.file ? `/uploads/${req.file.filename}` : undefined
     const ipAddress = req.ip
     const userId = (req as AuthRequest).userId
-    const entry = await punch(userId, { ...data, photoUrl, ipAddress })
 
-    // emite localização imediata para gestores verem o pin no mapa
+    const entry = await punch(userId, { ...data, ipAddress })
+
+    // salva foto no banco se enviada
+    if (req.file?.buffer) {
+      await prisma.timeEntry.update({
+        where: { id: entry.id },
+        data: {
+          photoData: req.file.buffer as unknown as Uint8Array<ArrayBuffer>,
+          photoUrl: `/api/time-entries/photo/${entry.id}`,
+        },
+      })
+      entry.photoUrl = `/api/time-entries/photo/${entry.id}`
+    }
+
+    // emite localização imediata para gestores
     const io = getIo()
     if (io) {
       io.to('tracking:room').emit('gps:user_location', {
@@ -46,6 +53,20 @@ router.post('/', upload.single('photo'), async (req: Request, res: Response, nex
     }
 
     res.status(201).json(entry)
+  } catch (e) { next(e) }
+})
+
+// serve foto direto do banco
+router.get('/photo/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const entry = await prisma.timeEntry.findUnique({
+      where: { id: req.params.id as string },
+      select: { photoData: true },
+    })
+    if (!entry?.photoData) { res.status(404).json({ message: 'Foto não encontrada' }); return }
+    res.setHeader('Content-Type', 'image/jpeg')
+    res.setHeader('Cache-Control', 'public, max-age=31536000')
+    res.send(entry.photoData)
   } catch (e) { next(e) }
 })
 

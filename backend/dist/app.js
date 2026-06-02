@@ -1,0 +1,28 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const cors_1 = __importDefault(require("cors"));
+const helmet_1 = __importDefault(require("helmet"));
+const path_1 = __importDefault(require("path"));
+const env_1 = require("./config/env");
+const errorHandler_1 = require("./shared/errors/errorHandler");
+const auth_router_1 = __importDefault(require("./modules/auth/auth.router"));
+const users_router_1 = __importDefault(require("./modules/users/users.router"));
+const time_entries_router_1 = __importDefault(require("./modules/time-entries/time-entries.router"));
+const gps_logs_router_1 = __importDefault(require("./modules/gps-logs/gps-logs.router"));
+const work_days_router_1 = __importDefault(require("./modules/work-days/work-days.router"));
+const app = (0, express_1.default)();
+app.use((0, helmet_1.default)({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use((0, cors_1.default)({ origin: true, credentials: true }));
+app.use(express_1.default.json());
+app.use('/uploads', express_1.default.static(path_1.default.resolve(env_1.env.UPLOAD_DIR)));
+app.use('/api/auth', auth_router_1.default);
+app.use('/api/users', users_router_1.default);
+app.use('/api/time-entries', time_entries_router_1.default);
+app.use('/api/gps-logs', gps_logs_router_1.default);
+app.use('/api/work-days', work_days_router_1.default);
+app.use(errorHandler_1.errorHandler);
+exports.default = app;

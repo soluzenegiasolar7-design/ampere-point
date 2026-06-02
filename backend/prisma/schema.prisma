@@ -56,6 +56,7 @@ model TimeEntry {
   longitude  Float
   accuracy   Float?
   photoUrl   String?
+  photoData  Bytes?
   address    String?
   ipAddress  String?
   deviceInfo String?

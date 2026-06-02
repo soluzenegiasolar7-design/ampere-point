@@ -12,7 +12,7 @@ function todayRange() {
 
 export async function punch(userId: string, data: {
   type: PunchType; latitude: number; longitude: number
-  accuracy?: number; photoUrl?: string; ipAddress?: string; deviceInfo?: string
+  accuracy?: number; photoUrl?: string; photoData?: Buffer; ipAddress?: string; deviceInfo?: string
 }) {
   const { start, end } = todayRange()
 
@@ -27,7 +27,8 @@ export async function punch(userId: string, data: {
     throw new AppError(`Próximo ponto esperado: ${nextExpected.replace('_', ' ')}`, 400)
   }
 
-  const entry = await prisma.timeEntry.create({ data: { userId, ...data } })
+  const { photoData, ...rest } = data
+  const entry = await prisma.timeEntry.create({ data: { userId, ...rest } })
 
   // Atualiza status do WorkDay
   const dateOnly = new Date(); dateOnly.setHours(0, 0, 0, 0)
