@@ -18,6 +18,7 @@ import { Server } from 'socket.io'
 import app from './app'
 import { env } from './config/env'
 import { initSocket } from './socket/socket.handler'
+import { setIo } from './socket/io'
 import fs from 'fs'
 import path from 'path'
 
@@ -27,6 +28,7 @@ const io = new Server(httpServer, {
   cors: { origin: true, credentials: true },
 })
 
+setIo(io)
 initSocket(io)
 
 const uploadDir = path.resolve(env.UPLOAD_DIR)

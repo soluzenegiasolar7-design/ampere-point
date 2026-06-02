@@ -6,6 +6,7 @@ import multer from 'multer'
 import path from 'path'
 import { v4 as uuid } from 'uuid'
 import { env } from '../../config/env'
+import { getIo } from '../../socket/io'
 
 const storage = multer.diskStorage({
   destination: env.UPLOAD_DIR,
@@ -29,7 +30,21 @@ router.post('/', upload.single('photo'), async (req: Request, res: Response, nex
     const data = punchSchema.parse(req.body)
     const photoUrl = req.file ? `/uploads/${req.file.filename}` : undefined
     const ipAddress = req.ip
-    const entry = await punch((req as AuthRequest).userId, { ...data, photoUrl, ipAddress })
+    const userId = (req as AuthRequest).userId
+    const entry = await punch(userId, { ...data, photoUrl, ipAddress })
+
+    // emite localização imediata para gestores verem o pin no mapa
+    const io = getIo()
+    if (io) {
+      io.to('tracking:room').emit('gps:user_location', {
+        userId,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        accuracy: data.accuracy,
+        timestamp: new Date(),
+      })
+    }
+
     res.status(201).json(entry)
   } catch (e) { next(e) }
 })
