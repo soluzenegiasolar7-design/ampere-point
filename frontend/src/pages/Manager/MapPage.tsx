@@ -109,40 +109,44 @@ export default function MapPage() {
               const loc = getLoc(emp.id)
               const isActive = wd?.status === 'EM_SERVICO'
               return (
-                <button
+                <div
                   key={emp.id}
-                  onClick={() => loadTrail(emp.id)}
                   className={`w-full text-left p-3 rounded-xl mb-2 border transition-colors ${
                     selectedUser === emp.id
                       ? 'bg-green-900/30 border-green-700'
                       : 'bg-gray-800 border-gray-700 hover:border-gray-600'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-white text-sm">{emp.name}</span>
-                    <span className={`text-xs font-bold ${isActive ? 'text-green-400' : 'text-gray-500'}`}>
-                      {isActive ? '● Em campo' : '○ Fora'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500">{emp.unit}</p>
-                  {wd && (
-                    <div className="flex gap-3 mt-2 text-xs">
-                      <span className="text-blue-400">📍 {wd.totalKm.toFixed(1)} km</span>
-                      <span className="text-gray-400">⏱ {Math.floor(wd.totalMinutes / 60)}h{wd.totalMinutes % 60}m</span>
+                  <div
+                    className="cursor-pointer"
+                    onClick={() => loadTrail(emp.id)}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-white text-sm">{emp.name}</span>
+                      <span className={`text-xs font-bold ${isActive ? 'text-green-400' : 'text-gray-500'}`}>
+                        {isActive ? '● Em campo' : '○ Fora'}
+                      </span>
                     </div>
-                  )}
-                  {loc && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Última pos: {formatTime(loc.timestamp)}
-                    </p>
-                  )}
+                    <p className="text-xs text-gray-500">{emp.unit}</p>
+                    {wd && (
+                      <div className="flex gap-3 mt-2 text-xs">
+                        <span className="text-blue-400">📍 {wd.totalKm.toFixed(1)} km</span>
+                        <span className="text-gray-400">⏱ {Math.floor(wd.totalMinutes / 60)}h{wd.totalMinutes % 60}m</span>
+                      </div>
+                    )}
+                    {loc && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Última pos: {formatTime(loc.timestamp)}
+                      </p>
+                    )}
+                  </div>
                   <button
-                    onClick={e => { e.stopPropagation(); setSelectedPunchEmployee(emp) }}
+                    onClick={() => setSelectedPunchEmployee(emp)}
                     className="mt-2 w-full text-center text-xs text-blue-400 hover:text-blue-300 bg-gray-700/50 hover:bg-gray-700 py-1 rounded-lg transition-colors"
                   >
                     📋 Ver pontos e fotos
                   </button>
-                </button>
+                </div>
               )
             })}
           </div>
