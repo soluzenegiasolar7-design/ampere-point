@@ -43,7 +43,7 @@ export default function EmployeePunchesModal({ employee, onClose }: Props) {
     `https://www.google.com/maps?q=${lat},${lng}`
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={onClose}>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/70" style={{zIndex:9999}} onClick={onClose}>
       <div
         className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg mx-4 shadow-2xl flex flex-col max-h-[90vh]"
         onClick={e => e.stopPropagation()}
@@ -124,7 +124,7 @@ export default function EmployeePunchesModal({ employee, onClose }: Props) {
       {/* Zoom de foto */}
       {zoomedPhoto && (
         <div
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/90"
+          className="fixed inset-0 flex items-center justify-center bg-black/90" style={{zIndex:10000}}
           onClick={() => setZoomedPhoto(null)}
         >
           <img src={zoomedPhoto} alt="Selfie ampliada" className="max-w-full max-h-full rounded-xl shadow-2xl" />
