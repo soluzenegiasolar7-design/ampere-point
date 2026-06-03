@@ -16,7 +16,7 @@ export default function App() {
   const { loadMe, token } = useAuthStore()
 
   useEffect(() => {
-    if (token) loadMe()
+    if (token) loadMe().catch(() => {})
   }, [])
 
   return (
