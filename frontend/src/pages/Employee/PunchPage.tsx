@@ -15,6 +15,7 @@ export default function PunchPage() {
   const { user, logout } = useAuthStore()
   const [nextPunch, setNextPunch] = useState<string | null>(null)
   const [entries, setEntries] = useState<any[]>([])
+  const [workDay, setWorkDay] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [showCamera, setShowCamera] = useState(false)
   const [success, setSuccess] = useState('')
@@ -28,12 +29,15 @@ export default function PunchPage() {
   useGPS(isWorking)
 
   const loadData = async () => {
-    const [nextRes, entriesRes] = await Promise.all([
+    const [nextRes, entriesRes, wdRes] = await Promise.all([
       api.get('/api/time-entries/next'),
       api.get('/api/time-entries/today'),
+      api.get('/api/work-days/my'),
     ])
     setNextPunch(nextRes.data.next)
     setEntries(entriesRes.data)
+    const today = new Date().toISOString().slice(0, 10)
+    setWorkDay(wdRes.data.find((d: any) => d.date.slice(0, 10) === today) ?? null)
   }
 
   useEffect(() => { loadData() }, [])
@@ -129,6 +133,23 @@ export default function PunchPage() {
         ) : (
           <div className="w-full py-6 rounded-2xl bg-gray-800 text-gray-400 font-bold text-xl text-center mb-6">
             ✅ Todos os pontos registrados
+          </div>
+        )}
+
+        {/* Resumo do dia */}
+        {workDay && (
+          <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4 flex justify-around mb-4">
+            <div className="text-center">
+              <p className="text-blue-400 font-bold text-xl">{workDay.totalKm.toFixed(1)} km</p>
+              <p className="text-gray-500 text-xs mt-1">Percorrido hoje</p>
+            </div>
+            <div className="w-px bg-gray-700" />
+            <div className="text-center">
+              <p className="text-green-400 font-bold text-xl">
+                {Math.floor(workDay.totalMinutes / 60)}h{String(workDay.totalMinutes % 60).padStart(2, '0')}m
+              </p>
+              <p className="text-gray-500 text-xs mt-1">Tempo trabalhado</p>
+            </div>
           </div>
         )}
 

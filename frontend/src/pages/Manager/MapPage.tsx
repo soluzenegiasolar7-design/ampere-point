@@ -56,6 +56,7 @@ export default function MapPage() {
 
   // foto ampliada
   const [zoomedPhoto, setZoomedPhoto] = useState<string|null>(null)
+  const [exportLoading, setExportLoading] = useState(false)
 
   useSocket(user?.role)
 
@@ -96,6 +97,22 @@ export default function MapPage() {
     const { data } = await api.get(`/api/gps-logs/trail/${uid}`)
     setSelectedTrail(data.map((p: any) => [p.latitude, p.longitude]))
     setSelectedUser(uid)
+  }
+
+  const exportCSV = async () => {
+    setExportLoading(true)
+    try {
+      const date = new Date().toISOString().slice(0, 10)
+      const res = await api.get(`/api/work-days/export?date=${date}`, { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `ponto-${date}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch { /* silently fail */ } finally {
+      setExportLoading(false)
+    }
   }
 
   const setF = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
@@ -162,6 +179,13 @@ export default function MapPage() {
           <div className="flex h-full">
             {/* sidebar */}
             <div className="w-64 bg-gray-900 border-r border-gray-800 overflow-y-auto shrink-0 p-3">
+              <button
+                onClick={exportCSV}
+                disabled={exportLoading}
+                className="w-full mb-3 py-2 text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
+              >
+                {exportLoading ? 'Exportando...' : '⬇️ Exportar CSV'}
+              </button>
               <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-3">Funcionários</p>
               {employees.map(emp => {
                 const wd = getWorkDay(emp.id)

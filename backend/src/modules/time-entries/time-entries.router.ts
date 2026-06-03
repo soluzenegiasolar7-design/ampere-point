@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { punch, listTodayEntries, listAllTodayEntries, listEntriesByDate, nextPunchType } from './time-entries.service'
+import { punch, listTodayEntries, listAllTodayEntries, listEntriesByDate, nextPunchType, recalcTotalMinutes } from './time-entries.service'
 import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
 import multer from 'multer'
 import { getIo } from '../../socket/io'
@@ -39,6 +39,9 @@ router.post('/', upload.single('photo'), async (req: Request, res: Response, nex
       })
       entry.photoUrl = `/api/time-entries/photo/${entry.id}`
     }
+
+    // atualiza totalMinutes do dia
+    recalcTotalMinutes(userId, new Date()).catch(() => {})
 
     // emite localização imediata para gestores
     const io = getIo()

@@ -68,6 +68,35 @@ export async function listAllTodayEntries() {
   })
 }
 
+export async function recalcTotalMinutes(userId: string, dateOnly: Date) {
+  const start = new Date(dateOnly); start.setHours(0, 0, 0, 0)
+  const end = new Date(dateOnly); end.setHours(23, 59, 59, 999)
+
+  const entries = await prisma.timeEntry.findMany({
+    where: { userId, timestamp: { gte: start, lte: end } },
+    orderBy: { timestamp: 'asc' },
+  })
+
+  const byType: Record<string, number> = {}
+  for (const e of entries) byType[e.type] = e.timestamp.getTime()
+
+  let totalMinutes = 0
+  if (byType['SAIDA'] && byType['ENTRADA']) {
+    totalMinutes = Math.round((byType['SAIDA'] - byType['ENTRADA']) / 60000)
+    if (byType['SAIDA_ALMOCO'] && byType['RETORNO_ALMOCO']) {
+      totalMinutes -= Math.round((byType['RETORNO_ALMOCO'] - byType['SAIDA_ALMOCO']) / 60000)
+    }
+  } else if (byType['SAIDA_ALMOCO'] && byType['ENTRADA']) {
+    totalMinutes = Math.round((byType['SAIDA_ALMOCO'] - byType['ENTRADA']) / 60000)
+  }
+
+  await prisma.workDay.upsert({
+    where: { userId_date: { userId, date: start } },
+    update: { totalMinutes: Math.max(0, totalMinutes) },
+    create: { userId, date: start, totalMinutes: Math.max(0, totalMinutes) },
+  })
+}
+
 export async function nextPunchType(userId: string): Promise<PunchType | null> {
   const { start, end } = todayRange()
   const count = await prisma.timeEntry.count({
