@@ -39,3 +39,13 @@ export async function getTodayTrail(userId: string) {
     select: { latitude: true, longitude: true, timestamp: true, speed: true },
   })
 }
+
+export async function getTrailByDate(userId: string, dateStr: string) {
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0)
+  const end = new Date(dateStr); end.setHours(23, 59, 59, 999)
+  return prisma.gpsLog.findMany({
+    where: { userId, timestamp: { gte: d, lte: end } },
+    orderBy: { timestamp: 'asc' },
+    select: { latitude: true, longitude: true, timestamp: true, speed: true },
+  })
+}

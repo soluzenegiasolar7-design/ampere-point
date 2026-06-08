@@ -1,6 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express'
-import { z } from 'zod'
-import { getTodayTrail } from './gps-logs.service'
+import { getTrailByDate, getTodayTrail } from './gps-logs.service'
 import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
 
 const router = Router()
@@ -14,7 +13,12 @@ router.get('/trail/today', async (req: Request, res: Response, next: NextFunctio
 
 router.get('/trail/:userId', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json(await getTodayTrail(req.params.userId as string))
+    const dateStr = String(Array.isArray(req.query.date) ? req.query.date[0] : (req.query.date || ''))
+    if (dateStr) {
+      res.json(await getTrailByDate(req.params.userId as string, dateStr))
+    } else {
+      res.json(await getTodayTrail(req.params.userId as string))
+    }
   } catch (e) { next(e) }
 })
 

@@ -6,8 +6,12 @@ import multer from 'multer'
 import { getIo } from '../../socket/io'
 import { prisma } from '../../config/database'
 
-// foto em memória → salva no banco como bytes
+// fotos em memória → salva no banco como bytes
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
+const uploadFields = upload.fields([
+  { name: 'photo', maxCount: 1 },
+  { name: 'odometerPhoto', maxCount: 1 },
+])
 
 const router = Router()
 router.use(requireAuth)
@@ -18,9 +22,10 @@ const punchSchema = z.object({
   longitude: z.coerce.number(),
   accuracy: z.coerce.number().optional(),
   deviceInfo: z.string().optional(),
+  odometerKm: z.coerce.number().optional(),
 })
 
-router.post('/', upload.single('photo'), async (req: Request, res: Response, next: NextFunction) => {
+router.post('/', uploadFields, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = punchSchema.parse(req.body)
     const ipAddress = req.ip
@@ -28,16 +33,26 @@ router.post('/', upload.single('photo'), async (req: Request, res: Response, nex
 
     const entry = await punch(userId, { ...data, ipAddress })
 
-    // salva foto no banco se enviada
-    if (req.file?.buffer) {
-      await prisma.timeEntry.update({
-        where: { id: entry.id },
-        data: {
-          photoData: req.file.buffer as unknown as Uint8Array<ArrayBuffer>,
-          photoUrl: `/api/time-entries/photo/${entry.id}`,
-        },
-      })
-      entry.photoUrl = `/api/time-entries/photo/${entry.id}`
+    const files = req.files as Record<string, Express.Multer.File[]> | undefined
+    const selfieFile = files?.['photo']?.[0]
+    const odometerFile = files?.['odometerPhoto']?.[0]
+
+    const updateData: Record<string, unknown> = {}
+    if (selfieFile?.buffer) {
+      updateData.photoData = selfieFile.buffer as unknown as Uint8Array<ArrayBuffer>
+      updateData.photoUrl  = `/api/time-entries/photo/${entry.id}`
+    }
+    if (odometerFile?.buffer) {
+      updateData.odometerPhotoData = odometerFile.buffer as unknown as Uint8Array<ArrayBuffer>
+      updateData.odometerPhotoUrl  = `/api/time-entries/odometer-photo/${entry.id}`
+    }
+    if (data.odometerKm != null) updateData.odometerKm = data.odometerKm
+
+    if (Object.keys(updateData).length > 0) {
+      await prisma.timeEntry.update({ where: { id: entry.id }, data: updateData })
+      if (updateData.photoUrl)        entry.photoUrl = updateData.photoUrl as string
+      if (updateData.odometerPhotoUrl) (entry as any).odometerPhotoUrl = updateData.odometerPhotoUrl
+      if (updateData.odometerKm != null) (entry as any).odometerKm = updateData.odometerKm
     }
 
     // atualiza totalMinutes do dia
@@ -59,7 +74,7 @@ router.post('/', upload.single('photo'), async (req: Request, res: Response, nex
   } catch (e) { next(e) }
 })
 
-// serve foto direto do banco
+// serve selfie do banco
 router.get('/photo/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const entry = await prisma.timeEntry.findUnique({
@@ -70,6 +85,20 @@ router.get('/photo/:id', async (req: Request, res: Response, next: NextFunction)
     res.setHeader('Content-Type', 'image/jpeg')
     res.setHeader('Cache-Control', 'public, max-age=31536000')
     res.send(entry.photoData)
+  } catch (e) { next(e) }
+})
+
+// serve foto do tacômetro
+router.get('/odometer-photo/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const entry = await prisma.timeEntry.findUnique({
+      where: { id: req.params.id as string },
+      select: { odometerPhotoData: true },
+    })
+    if (!entry?.odometerPhotoData) { res.status(404).json({ message: 'Foto não encontrada' }); return }
+    res.setHeader('Content-Type', 'image/jpeg')
+    res.setHeader('Cache-Control', 'public, max-age=31536000')
+    res.send(entry.odometerPhotoData)
   } catch (e) { next(e) }
 })
 
@@ -94,7 +123,12 @@ router.get('/all/today', requireRole('ADMIN', 'MANAGER'), async (_req: Request, 
 router.get('/user/:userId', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const date = String(Array.isArray(req.query.date) ? req.query.date[0] : (req.query.date || ''))
-    res.json(await listEntriesByDate(req.params.userId as string, date || new Date().toISOString()))
+    const entries = await listEntriesByDate(req.params.userId as string, date || new Date().toISOString())
+    res.json(entries.map((e: any) => ({
+      ...e,
+      photoData: undefined,
+      odometerPhotoData: undefined,
+    })))
   } catch (e) { next(e) }
 })
 

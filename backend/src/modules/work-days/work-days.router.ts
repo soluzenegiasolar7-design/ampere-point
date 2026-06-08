@@ -5,55 +5,84 @@ import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
 const router = Router()
 router.use(requireAuth)
 
+const fmtTime = (ts?: Date) => ts
+  ? ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' })
+  : ''
+const fmtMin = (mins: number) => `${Math.floor(mins / 60)}h${String(mins % 60).padStart(2, '0')}m`
+const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`
+const CSV_HEADER = 'Nome,Unidade,Data,Status,KM Percorrido,KM Tacômetro,Tempo Trabalhado,Horas Extras,Entrada,Saída Almoço,Retorno Almoço,Saída'
+
+async function buildCsvRows(dateStart: Date, dateEnd: Date) {
+  const days = await prisma.workDay.findMany({
+    where: { date: { gte: dateStart, lte: dateEnd } },
+    include: { user: { select: { id: true, name: true, unit: true } } },
+    orderBy: [{ user: { name: 'asc' } }, { date: 'asc' }],
+  })
+
+  const allEntries = await prisma.timeEntry.findMany({
+    where: { userId: { in: days.map(d => d.userId) }, timestamp: { gte: dateStart, lte: dateEnd } },
+    select: { userId: true, type: true, timestamp: true, odometerKm: true },
+    orderBy: { timestamp: 'asc' },
+  })
+
+  const entriesByUserDate: Record<string, Record<string, { time: Date; odometerKm?: number | null }>> = {}
+  for (const e of allEntries) {
+    const dateKey = e.timestamp.toISOString().slice(0, 10)
+    const key = `${e.userId}__${dateKey}`
+    if (!entriesByUserDate[key]) entriesByUserDate[key] = {}
+    entriesByUserDate[key][e.type] = { time: e.timestamp, odometerKm: e.type === 'SAIDA' ? e.odometerKm : undefined }
+  }
+
+  const STANDARD_MINUTES = 8 * 60
+  return days.map(day => {
+    const dateKey = day.date.toISOString().slice(0, 10)
+    const bt = entriesByUserDate[`${day.userId}__${dateKey}`] || {}
+    const extraMinutes = Math.max(0, day.totalMinutes - STANDARD_MINUTES)
+    return [
+      day.user.name,
+      day.user.unit || '',
+      dateKey,
+      day.status,
+      day.totalKm.toFixed(2),
+      bt['SAIDA']?.odometerKm != null ? bt['SAIDA'].odometerKm.toFixed(1) : '',
+      fmtMin(day.totalMinutes),
+      extraMinutes > 0 ? fmtMin(extraMinutes) : '',
+      fmtTime(bt['ENTRADA']?.time),
+      fmtTime(bt['SAIDA_ALMOCO']?.time),
+      fmtTime(bt['RETORNO_ALMOCO']?.time),
+      fmtTime(bt['SAIDA']?.time),
+    ].map(v => esc(String(v))).join(',')
+  })
+}
+
+// exportação diária (mantida para compatibilidade)
 router.get('/export', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const dateStr = String(req.query.date || new Date().toISOString().slice(0, 10))
     const [y, m, d] = dateStr.split('-').map(Number)
-    const dateOnly = new Date(y, m - 1, d, 0, 0, 0, 0)
-    const dateEnd  = new Date(y, m - 1, d, 23, 59, 59, 999)
+    const dateStart = new Date(y, m - 1, d, 0, 0, 0, 0)
+    const dateEnd   = new Date(y, m - 1, d, 23, 59, 59, 999)
 
-    const days = await prisma.workDay.findMany({
-      where: { date: { gte: dateOnly, lte: dateEnd } },
-      include: { user: { select: { id: true, name: true, unit: true } } },
-      orderBy: { user: { name: 'asc' } },
-    })
-
-    const allEntries = await prisma.timeEntry.findMany({
-      where: { userId: { in: days.map(d => d.userId) }, timestamp: { gte: dateOnly, lte: dateEnd } },
-      orderBy: { timestamp: 'asc' },
-    })
-
-    const entriesByUser: Record<string, Record<string, Date>> = {}
-    for (const e of allEntries) {
-      if (!entriesByUser[e.userId]) entriesByUser[e.userId] = {}
-      entriesByUser[e.userId][e.type] = e.timestamp
-    }
-
-    const fmtTime = (ts?: Date) => ts
-      ? ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' })
-      : ''
-    const fmtMin = (mins: number) => `${Math.floor(mins / 60)}h${String(mins % 60).padStart(2, '0')}m`
-    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`
-
-    const header = 'Nome,Unidade,Status,KM Percorrido,Tempo Trabalhado,Entrada,Saída Almoço,Retorno Almoço,Saída'
-    const rows = days.map(day => {
-      const bt = entriesByUser[day.userId] || {}
-      return [
-        day.user.name,
-        day.user.unit || '',
-        day.status,
-        day.totalKm.toFixed(2),
-        fmtMin(day.totalMinutes),
-        fmtTime(bt['ENTRADA']),
-        fmtTime(bt['SAIDA_ALMOCO']),
-        fmtTime(bt['RETORNO_ALMOCO']),
-        fmtTime(bt['SAIDA']),
-      ].map(v => esc(String(v))).join(',')
-    })
-
-    const csv = '﻿' + [header, ...rows].join('\r\n')
+    const rows = await buildCsvRows(dateStart, dateEnd)
+    const csv = '﻿' + [CSV_HEADER, ...rows].join('\r\n')
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', `attachment; filename="ponto-${dateStr}.csv"`)
+    res.send(csv)
+  } catch (e) { next(e) }
+})
+
+// exportação mensal
+router.get('/export-monthly', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const monthStr = String(req.query.month || new Date().toISOString().slice(0, 7))
+    const [y, m] = monthStr.split('-').map(Number)
+    const dateStart = new Date(y, m - 1, 1, 0, 0, 0, 0)
+    const dateEnd   = new Date(y, m, 0, 23, 59, 59, 999) // último dia do mês
+
+    const rows = await buildCsvRows(dateStart, dateEnd)
+    const csv = '﻿' + [CSV_HEADER, ...rows].join('\r\n')
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="ponto-${monthStr}.csv"`)
     res.send(csv)
   } catch (e) { next(e) }
 })
