@@ -134,26 +134,31 @@ export default function PunchPage() {
     setError('')
 
     const blob = await captureBlob(selfieVideoRef, selfieCanvasRef)
-    selfieBlob.current = blob
     stopStream(selfieStreamRef)
 
     const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
       navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true })
     ).catch(() => null)
 
+    // 1. envia ponto com selfie (upload.single — igual ao original)
     const form = new FormData()
-    form.append('type', nextPunch!)
+    form.append('type',      nextPunch!)
     form.append('latitude',  String(pos?.coords.latitude  ?? -5.7945))
     form.append('longitude', String(pos?.coords.longitude ?? -35.2110))
-    if (pos) form.append('accuracy', String(pos.coords.accuracy))
+    if (pos)  form.append('accuracy', String(pos.coords.accuracy))
     if (blob) form.append('photo', blob, 'selfie.jpg')
-    if (nextPunch === 'SAIDA') {
-      if (odometerBlob.current) form.append('odometerPhoto', odometerBlob.current, 'odometer.jpg')
-      if (odometerKm) form.append('odometerKm', odometerKm)
-    }
 
     try {
-      await api.post('/api/time-entries', form)
+      const { data: entry } = await api.post('/api/time-entries', form)
+
+      // 2. se SAIDA, envia tacômetro em chamada separada
+      if (nextPunch === 'SAIDA' && (odometerBlob.current || odometerKm)) {
+        const odoForm = new FormData()
+        if (odometerKm)           odoForm.append('odometerKm', odometerKm)
+        if (odometerBlob.current) odoForm.append('odometerPhoto', odometerBlob.current, 'odometer.jpg')
+        await api.patch(`/api/time-entries/${entry.id}/odometer`, odoForm).catch(() => {})
+      }
+
       setSuccess(`${PUNCH_LABELS[nextPunch!]?.label} registrada!`)
       setStep('idle')
       await loadData()

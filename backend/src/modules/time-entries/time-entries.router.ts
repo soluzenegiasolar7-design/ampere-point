@@ -6,67 +6,48 @@ import multer from 'multer'
 import { getIo } from '../../socket/io'
 import { prisma } from '../../config/database'
 
-// fotos em memória → salva no banco como bytes
+// upload.single — mantém o comportamento original que funcionava para selfie
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
-const uploadFields = upload.fields([
-  { name: 'photo', maxCount: 1 },
-  { name: 'odometerPhoto', maxCount: 1 },
-])
 
 const router = Router()
 router.use(requireAuth)
 
 const punchSchema = z.object({
-  type: z.enum(['ENTRADA', 'SAIDA_ALMOCO', 'RETORNO_ALMOCO', 'SAIDA']),
-  latitude: z.coerce.number(),
-  longitude: z.coerce.number(),
-  accuracy: z.coerce.number().optional(),
+  type:       z.enum(['ENTRADA', 'SAIDA_ALMOCO', 'RETORNO_ALMOCO', 'SAIDA']),
+  latitude:   z.coerce.number(),
+  longitude:  z.coerce.number(),
+  accuracy:   z.coerce.number().optional(),
   deviceInfo: z.string().optional(),
-  odometerKm: z.coerce.number().optional(),
 })
 
-router.post('/', uploadFields, async (req: Request, res: Response, next: NextFunction) => {
+// POST /api/time-entries — bate ponto com selfie
+router.post('/', upload.single('photo'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = punchSchema.parse(req.body)
-    const ipAddress = req.ip
     const userId = (req as AuthRequest).userId
 
-    const entry = await punch(userId, { ...data, ipAddress })
+    const entry = await punch(userId, { ...data, ipAddress: req.ip })
 
-    const files = req.files as Record<string, Express.Multer.File[]> | undefined
-    const selfieFile  = files?.['photo']?.[0]
-    const odometerFile = files?.['odometerPhoto']?.[0]
-
-    if (selfieFile?.buffer || odometerFile?.buffer || data.odometerKm != null) {
+    if (req.file?.buffer) {
       await prisma.timeEntry.update({
         where: { id: entry.id },
         data: {
-          ...(selfieFile?.buffer && {
-            photoData: selfieFile.buffer as unknown as Uint8Array<ArrayBuffer>,
-            photoUrl:  `/api/time-entries/photo/${entry.id}`,
-          }),
-          ...(odometerFile?.buffer && {
-            odometerPhotoData: odometerFile.buffer as unknown as Uint8Array<ArrayBuffer>,
-            odometerPhotoUrl:  `/api/time-entries/odometer-photo/${entry.id}`,
-          }),
-          ...(data.odometerKm != null && { odometerKm: data.odometerKm }),
+          photoData: req.file.buffer as unknown as Uint8Array<ArrayBuffer>,
+          photoUrl:  `/api/time-entries/photo/${entry.id}`,
         },
       })
-      if (selfieFile?.buffer)   entry.photoUrl = `/api/time-entries/photo/${entry.id}`
-      if (data.odometerKm != null) (entry as any).odometerKm = data.odometerKm
+      entry.photoUrl = `/api/time-entries/photo/${entry.id}`
     }
 
-    // atualiza totalMinutes do dia
     recalcTotalMinutes(userId, new Date()).catch(() => {})
 
-    // emite localização imediata para gestores
     const io = getIo()
     if (io) {
       io.to('tracking:room').emit('gps:user_location', {
         userId,
-        latitude: data.latitude,
+        latitude:  data.latitude,
         longitude: data.longitude,
-        accuracy: data.accuracy,
+        accuracy:  data.accuracy,
         timestamp: new Date(),
       })
     }
@@ -75,7 +56,32 @@ router.post('/', uploadFields, async (req: Request, res: Response, next: NextFun
   } catch (e) { next(e) }
 })
 
-// serve selfie do banco
+// PATCH /api/time-entries/:id/odometer — registra km + foto do tacômetro (chamada separada na SAIDA)
+router.patch('/:id/odometer', upload.single('odometerPhoto'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as AuthRequest).userId
+    const { id } = req.params as { id: string }
+    const odometerKm = req.body.odometerKm != null ? parseFloat(req.body.odometerKm) : undefined
+
+    const entry = await prisma.timeEntry.findUnique({ where: { id }, select: { id: true, userId: true } })
+    if (!entry || entry.userId !== userId) { res.status(404).json({ message: 'Ponto não encontrado' }); return }
+
+    await prisma.timeEntry.update({
+      where: { id },
+      data: {
+        ...(odometerKm != null && { odometerKm }),
+        ...(req.file?.buffer && {
+          odometerPhotoData: req.file.buffer as unknown as Uint8Array<ArrayBuffer>,
+          odometerPhotoUrl:  `/api/time-entries/odometer-photo/${id}`,
+        }),
+      },
+    })
+
+    res.json({ ok: true })
+  } catch (e) { next(e) }
+})
+
+// serve selfie
 router.get('/photo/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const entry = await prisma.timeEntry.findUnique({
