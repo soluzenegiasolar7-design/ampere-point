@@ -34,25 +34,26 @@ router.post('/', uploadFields, async (req: Request, res: Response, next: NextFun
     const entry = await punch(userId, { ...data, ipAddress })
 
     const files = req.files as Record<string, Express.Multer.File[]> | undefined
-    const selfieFile = files?.['photo']?.[0]
+    const selfieFile  = files?.['photo']?.[0]
     const odometerFile = files?.['odometerPhoto']?.[0]
 
-    const updateData: Record<string, unknown> = {}
-    if (selfieFile?.buffer) {
-      updateData.photoData = selfieFile.buffer as unknown as Uint8Array<ArrayBuffer>
-      updateData.photoUrl  = `/api/time-entries/photo/${entry.id}`
-    }
-    if (odometerFile?.buffer) {
-      updateData.odometerPhotoData = odometerFile.buffer as unknown as Uint8Array<ArrayBuffer>
-      updateData.odometerPhotoUrl  = `/api/time-entries/odometer-photo/${entry.id}`
-    }
-    if (data.odometerKm != null) updateData.odometerKm = data.odometerKm
-
-    if (Object.keys(updateData).length > 0) {
-      await prisma.timeEntry.update({ where: { id: entry.id }, data: updateData })
-      if (updateData.photoUrl)        entry.photoUrl = updateData.photoUrl as string
-      if (updateData.odometerPhotoUrl) (entry as any).odometerPhotoUrl = updateData.odometerPhotoUrl
-      if (updateData.odometerKm != null) (entry as any).odometerKm = updateData.odometerKm
+    if (selfieFile?.buffer || odometerFile?.buffer || data.odometerKm != null) {
+      await prisma.timeEntry.update({
+        where: { id: entry.id },
+        data: {
+          ...(selfieFile?.buffer && {
+            photoData: selfieFile.buffer as unknown as Uint8Array<ArrayBuffer>,
+            photoUrl:  `/api/time-entries/photo/${entry.id}`,
+          }),
+          ...(odometerFile?.buffer && {
+            odometerPhotoData: odometerFile.buffer as unknown as Uint8Array<ArrayBuffer>,
+            odometerPhotoUrl:  `/api/time-entries/odometer-photo/${entry.id}`,
+          }),
+          ...(data.odometerKm != null && { odometerKm: data.odometerKm }),
+        },
+      })
+      if (selfieFile?.buffer)   entry.photoUrl = `/api/time-entries/photo/${entry.id}`
+      if (data.odometerKm != null) (entry as any).odometerKm = data.odometerKm
     }
 
     // atualiza totalMinutes do dia
