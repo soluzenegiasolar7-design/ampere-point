@@ -111,11 +111,18 @@ export default function PunchPage() {
     if (blob) form.append('photo', blob, 'selfie.jpg')
 
     try {
+      const wasSaida = nextPunch === 'SAIDA'
       await api.post('/api/time-entries', form)
-      setSuccess(`${PUNCH_LABELS[nextPunch!]?.label} registrada!`)
-      setStep('idle')
       await loadData()
-      setTimeout(() => setSuccess(''), 3000)
+      if (wasSaida) {
+        // Odômetro obrigatório na saída — abre o formulário automaticamente
+        setOdoKm(''); odoBlob.current = null; setOdoPhotoTaken(false)
+        setStep('odo-form')
+      } else {
+        setSuccess(`${PUNCH_LABELS[nextPunch!]?.label} registrada!`)
+        setStep('idle')
+        setTimeout(() => setSuccess(''), 3000)
+      }
     } catch (e: any) {
       setError(e.response?.data?.error || 'Erro ao registrar ponto')
       setStep('idle')
@@ -332,7 +339,12 @@ export default function PunchPage() {
       {step === 'odo-form' && (
         <div className="fixed inset-0 bg-gray-950 z-50 flex flex-col">
           <div className="flex justify-between items-center p-4 bg-gray-900 border-b border-gray-800">
-            <p className="text-white font-bold">🚗 Quilometragem do dia</p>
+            <div>
+              <p className="text-white font-bold">🚗 Quilometragem do dia</p>
+              {nextPunch === null && entries.some(e => e.type === 'SAIDA') && (
+                <p className="text-yellow-400 text-xs mt-0.5">⚠ Obrigatório para concluir a saída</p>
+              )}
+            </div>
             <button onClick={cancelFlow} className="text-gray-400 text-2xl">✕</button>
           </div>
           <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
