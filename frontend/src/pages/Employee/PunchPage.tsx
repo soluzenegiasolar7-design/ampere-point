@@ -38,10 +38,15 @@ export default function PunchPage() {
 
   useEffect(() => { loadData() }, [])
 
+  const isSaida = nextPunch === 'SAIDA'
+
   const openCamera = async () => {
     setShowCamera(true)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+      // SAIDA: câmera traseira para fotografar o odômetro
+      // Demais pontos: câmera frontal (selfie)
+      const facingMode = isSaida ? 'environment' : 'user'
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } })
       streamRef.current = stream
       if (videoRef.current) videoRef.current.srcObject = stream
     } catch {
@@ -160,7 +165,14 @@ export default function PunchPage() {
       {showCamera && (
         <div className="fixed inset-0 bg-black z-50 flex flex-col">
           <div className="flex justify-between items-center p-4">
-            <p className="text-white font-semibold">Tire sua selfie para confirmar</p>
+            <div>
+              <p className="text-white font-semibold">
+                {isSaida ? '📷 Fotografe o odômetro' : '🤳 Tire sua selfie para confirmar'}
+              </p>
+              {isSaida && (
+                <p className="text-gray-400 text-xs mt-1">Aponte a câmera para o painel do veículo</p>
+              )}
+            </div>
             <button onClick={closeCamera} className="text-gray-400 text-2xl">✕</button>
           </div>
           <video ref={videoRef} autoPlay playsInline className="flex-1 object-cover" />
@@ -171,7 +183,7 @@ export default function PunchPage() {
               disabled={loading}
               className="w-full py-4 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-2xl text-white font-bold text-lg"
             >
-              {loading ? 'Registrando...' : '📸 Confirmar Ponto'}
+              {loading ? 'Registrando...' : isSaida ? '📸 Confirmar Saída com Odômetro' : '📸 Confirmar Ponto'}
             </button>
           </div>
         </div>

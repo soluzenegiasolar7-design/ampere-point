@@ -1,6 +1,7 @@
 import { PunchType } from '@prisma/client'
 import { prisma } from '../../config/database'
 import { AppError } from '../../shared/errors/AppError'
+import { createLog } from '../gps-logs/gps-logs.service'
 
 const SEQUENCE: PunchType[] = ['ENTRADA', 'SAIDA_ALMOCO', 'RETORNO_ALMOCO', 'SAIDA']
 
@@ -29,6 +30,14 @@ export async function punch(userId: string, data: {
 
   const { photoData, ...rest } = data
   const entry = await prisma.timeEntry.create({ data: { userId, ...rest } })
+
+  // Grava a localização do ponto no gpsLog para garantir que
+  // a posição final seja incluída no cálculo de KM do dia
+  await createLog(userId, {
+    latitude: data.latitude,
+    longitude: data.longitude,
+    accuracy: data.accuracy,
+  })
 
   // Atualiza status do WorkDay
   const dateOnly = new Date(); dateOnly.setHours(0, 0, 0, 0)
