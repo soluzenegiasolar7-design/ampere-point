@@ -110,7 +110,11 @@ router.get('/today', requireRole('ADMIN', 'MANAGER'), async (_req: Request, res:
     const dateOnly = new Date(); dateOnly.setHours(0, 0, 0, 0)
     const days = await prisma.workDay.findMany({
       where: { date: dateOnly },
-      include: { user: { select: { id: true, name: true, unit: true } } },
+      select: {
+        id: true, userId: true, date: true, totalKm: true, totalMinutes: true,
+        status: true, odometerKm: true, odometerPhotoUrl: true,
+        user: { select: { id: true, name: true, unit: true } },
+      },
     })
     res.json(days)
   } catch (e) { next(e) }

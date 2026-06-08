@@ -21,7 +21,7 @@ const greenIcon = new L.Icon({
 interface Props {
   employee: { id: string; name: string; unit?: string }
   date: string // YYYY-MM-DD
-  workDay?: { totalKm: number; totalMinutes: number; status: string } | null
+  workDay?: { totalKm: number; totalMinutes: number; status: string; odometerKm?: number | null; odometerPhotoUrl?: string | null } | null
   onClose: () => void
 }
 
@@ -63,8 +63,6 @@ export default function EmployeeDayModal({ employee, date, workDay, onClose }: P
     ? trail[Math.floor(trail.length / 2)]
     : [-5.7945, -35.2110]
 
-  const saidaEntry = punches.find(p => p.type === 'SAIDA')
-
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
       <div className="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -98,12 +96,12 @@ export default function EmployeeDayModal({ employee, date, workDay, onClose }: P
                 <p className="text-blue-400 font-bold text-xl">{workDay ? workDay.totalKm.toFixed(1) : '—'} km</p>
                 <p className="text-gray-500 text-xs mt-1">GPS percorrido</p>
               </div>
-              {saidaEntry?.odometerKm != null && (
-                <div className="bg-gray-800 rounded-xl p-3 text-center">
-                  <p className="text-purple-400 font-bold text-xl">{Number(saidaEntry.odometerKm).toFixed(0)} km</p>
-                  <p className="text-gray-500 text-xs mt-1">Tacômetro</p>
-                </div>
-              )}
+              <div className="bg-gray-800 rounded-xl p-3 text-center">
+                <p className="text-purple-400 font-bold text-xl">
+                  {workDay?.odometerKm != null ? `${Number(workDay.odometerKm).toFixed(0)} km` : '—'}
+                </p>
+                <p className="text-gray-500 text-xs mt-1">Tacômetro</p>
+              </div>
               <div className="bg-gray-800 rounded-xl p-3 text-center">
                 <p className="text-green-400 font-bold text-xl">
                   {workDay ? `${Math.floor(workDay.totalMinutes / 60)}h${String(workDay.totalMinutes % 60).padStart(2, '0')}m` : '—'}
@@ -186,15 +184,15 @@ export default function EmployeeDayModal({ employee, date, workDay, onClose }: P
             </div>
 
             {/* foto do tacômetro */}
-            {saidaEntry?.odometerPhotoUrl && (
+            {workDay?.odometerPhotoUrl && (
               <div className="px-5 pb-5">
                 <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-3">Foto do tacômetro</p>
                 <div
                   className="cursor-zoom-in inline-block rounded-xl overflow-hidden border border-gray-700"
-                  onClick={() => setZoomedPhoto(`${API_URL}${saidaEntry.odometerPhotoUrl}`)}
+                  onClick={() => setZoomedPhoto(`${API_URL}${workDay.odometerPhotoUrl}`)}
                 >
                   <img
-                    src={`${API_URL}${saidaEntry.odometerPhotoUrl}`}
+                    src={`${API_URL}${workDay.odometerPhotoUrl}`}
                     alt="Tacômetro"
                     className="max-h-48 object-contain"
                   />
