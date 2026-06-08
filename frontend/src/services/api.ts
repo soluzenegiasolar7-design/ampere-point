@@ -15,7 +15,7 @@ api.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401) {
       localStorage.removeItem('ap_token')
-      window.location.href = '/login'
+      window.location.href = '/ampere-point/#/login'
     }
     return Promise.reject(err)
   }

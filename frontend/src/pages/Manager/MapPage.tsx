@@ -6,6 +6,7 @@ import { useLocationStore } from '../../stores/location.store'
 import { useSocket } from '../../hooks/useSocket'
 import { api } from '../../services/api'
 import { useAuthStore } from '../../stores/auth.store'
+import EmployeeDayModal from './EmployeeDayModal'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002'
 
@@ -56,6 +57,12 @@ export default function MapPage() {
 
   // foto ampliada
   const [zoomedPhoto, setZoomedPhoto] = useState<string|null>(null)
+  const [exportLoading, setExportLoading] = useState(false)
+  const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [monthlyExportLoading, setMonthlyExportLoading] = useState(false)
+
+  // modal de detalhes do funcionário
+  const [selectedEmployeeModal, setSelectedEmployeeModal] = useState<{id:string;name:string;unit?:string}|null>(null)
 
   useSocket(user?.role)
 
@@ -98,6 +105,31 @@ export default function MapPage() {
     setSelectedUser(uid)
   }
 
+  const exportCSV = async () => {
+    setExportLoading(true)
+    try {
+      const date = new Date().toISOString().slice(0, 10)
+      const res = await api.get(`/api/work-days/export?date=${date}`, { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a'); a.href = url; a.download = `ponto-${date}.csv`; a.click()
+      URL.revokeObjectURL(url)
+    } catch { /* silently fail */ } finally {
+      setExportLoading(false)
+    }
+  }
+
+  const exportMonthlyCSV = async () => {
+    setMonthlyExportLoading(true)
+    try {
+      const res = await api.get(`/api/work-days/export-monthly?month=${exportMonth}`, { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a'); a.href = url; a.download = `ponto-${exportMonth}.csv`; a.click()
+      URL.revokeObjectURL(url)
+    } catch { /* silently fail */ } finally {
+      setMonthlyExportLoading(false)
+    }
+  }
+
   const setF = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
   const submitForm = async (e: React.FormEvent) => {
@@ -125,8 +157,19 @@ export default function MapPage() {
   const input = "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-green-500"
   const label = "text-xs text-gray-400 mb-1 block"
 
+  const today = new Date().toISOString().slice(0, 10)
+
   return (
     <div className="h-screen bg-gray-950 flex flex-col">
+
+      {selectedEmployeeModal && (
+        <EmployeeDayModal
+          employee={selectedEmployeeModal}
+          date={today}
+          workDay={getWorkDay(selectedEmployeeModal.id)}
+          onClose={() => setSelectedEmployeeModal(null)}
+        />
+      )}
 
       {/* ── HEADER ── */}
       <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex justify-between items-center shrink-0">
@@ -162,6 +205,13 @@ export default function MapPage() {
           <div className="flex h-full">
             {/* sidebar */}
             <div className="w-64 bg-gray-900 border-r border-gray-800 overflow-y-auto shrink-0 p-3">
+              <button
+                onClick={exportCSV}
+                disabled={exportLoading}
+                className="w-full mb-3 py-2 text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
+              >
+                {exportLoading ? 'Exportando...' : '⬇️ Exportar CSV'}
+              </button>
               <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-3">Funcionários</p>
               {employees.map(emp => {
                 const wd = getWorkDay(emp.id)
@@ -170,25 +220,37 @@ export default function MapPage() {
                 return (
                   <div
                     key={emp.id}
-                    onClick={() => loadTrail(emp.id)}
-                    className={`cursor-pointer p-3 rounded-xl mb-2 border transition-colors ${
+                    className={`rounded-xl mb-2 border transition-colors ${
                       selectedUser === emp.id ? 'bg-green-900/30 border-green-700' : 'bg-gray-800 border-gray-700 hover:border-gray-600'
                     }`}
                   >
-                    <div className="flex justify-between mb-1">
-                      <span className="font-medium text-white text-sm">{emp.name}</span>
-                      <span className={`text-xs font-bold ${isActive ? 'text-green-400' : 'text-gray-500'}`}>
-                        {isActive ? '● Campo' : '○ Fora'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500">{emp.unit}</p>
-                    {wd && (
-                      <div className="flex gap-3 mt-1 text-xs">
-                        <span className="text-blue-400">📍 {wd.totalKm.toFixed(1)} km</span>
-                        <span className="text-gray-400">⏱ {Math.floor(wd.totalMinutes/60)}h{wd.totalMinutes%60}m</span>
+                    {/* nome clicável → modal de detalhes */}
+                    <div
+                      className="cursor-pointer p-3 pb-1"
+                      onClick={() => setSelectedEmployeeModal({ id: emp.id, name: emp.name, unit: emp.unit })}
+                    >
+                      <div className="flex justify-between mb-1">
+                        <span className="font-medium text-white text-sm hover:text-green-400 transition-colors">{emp.name}</span>
+                        <span className={`text-xs font-bold ${isActive ? 'text-green-400' : 'text-gray-500'}`}>
+                          {isActive ? '● Campo' : '○ Fora'}
+                        </span>
                       </div>
-                    )}
-                    {loc && <p className="text-xs text-gray-600 mt-1">Última pos: {fmt(loc.timestamp)}</p>}
+                      <p className="text-xs text-gray-500">{emp.unit}</p>
+                      {wd && (
+                        <div className="flex gap-3 mt-1 text-xs">
+                          <span className="text-blue-400">📍 {wd.totalKm.toFixed(1)} km</span>
+                          <span className="text-gray-400">⏱ {Math.floor(wd.totalMinutes/60)}h{wd.totalMinutes%60}m</span>
+                        </div>
+                      )}
+                      {loc && <p className="text-xs text-gray-600 mt-1">Última pos: {fmt(loc.timestamp)}</p>}
+                    </div>
+                    {/* botão de traçado separado */}
+                    <button
+                      onClick={() => loadTrail(emp.id)}
+                      className="w-full text-xs text-gray-500 hover:text-green-400 py-1.5 px-3 border-t border-gray-700 transition-colors"
+                    >
+                      {selectedUser === emp.id ? '🗺️ Ocultar traçado' : '🗺️ Ver traçado'}
+                    </button>
                   </div>
                 )
               })}
@@ -226,8 +288,12 @@ export default function MapPage() {
             <div className="w-72 border-r border-gray-800 overflow-y-auto p-4">
               <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-3">Cadastrados ({employees.length})</p>
               {employees.map(emp => (
-                <div key={emp.id} className="bg-gray-800 border border-gray-700 rounded-xl p-3 mb-2">
-                  <p className="font-semibold text-white text-sm">{emp.name}</p>
+                <div
+                  key={emp.id}
+                  className="bg-gray-800 border border-gray-700 rounded-xl p-3 mb-2 cursor-pointer hover:border-green-700 transition-colors"
+                  onClick={() => setSelectedEmployeeModal({ id: emp.id, name: emp.name, unit: emp.unit })}
+                >
+                  <p className="font-semibold text-white text-sm hover:text-green-400 transition-colors">{emp.name}</p>
                   <p className="text-xs text-gray-400">{emp.email}</p>
                   <div className="flex gap-2 mt-1">
                     <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">{emp.unit}</span>
@@ -237,8 +303,30 @@ export default function MapPage() {
               ))}
             </div>
 
-            {/* formulário */}
+            {/* área direita */}
             <div className="flex-1 overflow-y-auto p-6">
+
+              {/* relatório mensal */}
+              <div className="max-w-lg mb-8 bg-gray-900 border border-gray-700 rounded-2xl p-5">
+                <h2 className="text-base font-bold text-white mb-1">📊 Relatório Mensal</h2>
+                <p className="text-gray-400 text-sm mb-4">Exporta ponto completo do mês — todos os funcionários, por dia.</p>
+                <div className="flex gap-3">
+                  <input
+                    type="month"
+                    value={exportMonth}
+                    onChange={e => setExportMonth(e.target.value)}
+                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
+                  />
+                  <button
+                    onClick={exportMonthlyCSV}
+                    disabled={monthlyExportLoading}
+                    className="px-4 py-2 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-lg text-sm transition-colors whitespace-nowrap"
+                  >
+                    {monthlyExportLoading ? 'Exportando...' : '⬇️ Exportar CSV'}
+                  </button>
+                </div>
+              </div>
+
               <h2 className="text-lg font-bold text-white mb-1">Novo Funcionário</h2>
               <p className="text-gray-400 text-sm mb-5">Preencha os dados para cadastrar um novo acesso.</p>
 
