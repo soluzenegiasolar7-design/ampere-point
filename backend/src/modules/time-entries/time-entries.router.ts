@@ -10,6 +10,34 @@ import { prisma } from '../../config/database'
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 
 const router = Router()
+
+// rotas de foto ficam ANTES do requireAuth — img tags não enviam Authorization header
+router.get('/photo/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const entry = await prisma.timeEntry.findUnique({
+      where: { id: req.params.id as string },
+      select: { photoData: true },
+    })
+    if (!entry?.photoData) { res.status(404).end(); return }
+    res.setHeader('Content-Type', 'image/jpeg')
+    res.setHeader('Cache-Control', 'public, max-age=86400')
+    res.send(entry.photoData)
+  } catch (e) { next(e) }
+})
+
+router.get('/odometer-photo/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const entry = await prisma.timeEntry.findUnique({
+      where: { id: req.params.id as string },
+      select: { odometerPhotoData: true },
+    })
+    if (!entry?.odometerPhotoData) { res.status(404).end(); return }
+    res.setHeader('Content-Type', 'image/jpeg')
+    res.setHeader('Cache-Control', 'public, max-age=86400')
+    res.send(entry.odometerPhotoData)
+  } catch (e) { next(e) }
+})
+
 router.use(requireAuth)
 
 const punchSchema = z.object({
@@ -78,34 +106,6 @@ router.patch('/:id/odometer', upload.single('odometerPhoto'), async (req: Reques
     })
 
     res.json({ ok: true })
-  } catch (e) { next(e) }
-})
-
-// serve selfie
-router.get('/photo/:id', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const entry = await prisma.timeEntry.findUnique({
-      where: { id: req.params.id as string },
-      select: { photoData: true },
-    })
-    if (!entry?.photoData) { res.status(404).json({ message: 'Foto não encontrada' }); return }
-    res.setHeader('Content-Type', 'image/jpeg')
-    res.setHeader('Cache-Control', 'public, max-age=31536000')
-    res.send(entry.photoData)
-  } catch (e) { next(e) }
-})
-
-// serve foto do tacômetro
-router.get('/odometer-photo/:id', async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const entry = await prisma.timeEntry.findUnique({
-      where: { id: req.params.id as string },
-      select: { odometerPhotoData: true },
-    })
-    if (!entry?.odometerPhotoData) { res.status(404).json({ message: 'Foto não encontrada' }); return }
-    res.setHeader('Content-Type', 'image/jpeg')
-    res.setHeader('Cache-Control', 'public, max-age=31536000')
-    res.send(entry.odometerPhotoData)
   } catch (e) { next(e) }
 })
 
