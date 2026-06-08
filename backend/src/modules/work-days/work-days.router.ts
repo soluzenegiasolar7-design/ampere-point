@@ -1,8 +1,26 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/database'
 import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
+import multer from 'multer'
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 
 const router = Router()
+
+// foto do odômetro do WorkDay — pública (img tag não envia auth header)
+router.get('/odometer-photo/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const wd = await prisma.workDay.findUnique({
+      where: { id: req.params.id as string },
+      select: { odometerPhotoData: true },
+    })
+    if (!wd?.odometerPhotoData) { res.status(404).end(); return }
+    res.setHeader('Content-Type', 'image/jpeg')
+    res.setHeader('Cache-Control', 'public, max-age=86400')
+    res.send(wd.odometerPhotoData)
+  } catch (e) { next(e) }
+})
+
 router.use(requireAuth)
 
 const fmtTime = (ts?: Date) => ts
@@ -105,8 +123,44 @@ router.get('/my', async (req: Request, res: Response, next: NextFunction) => {
       where: { userId },
       orderBy: { date: 'desc' },
       take: 30,
+      select: {
+        id: true, date: true, totalKm: true, totalMinutes: true,
+        status: true, odometerKm: true, odometerPhotoUrl: true,
+      },
     })
     res.json(days)
+  } catch (e) { next(e) }
+})
+
+// registra km e foto do odômetro para o dia de hoje
+router.patch('/today/odometer', upload.single('odometerPhoto'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as AuthRequest).userId
+    const odometerKm = req.body.odometerKm != null ? parseFloat(req.body.odometerKm) : undefined
+    if (!odometerKm && !req.file) { res.status(400).json({ message: 'Informe km ou foto' }); return }
+
+    const dateOnly = new Date(); dateOnly.setHours(0, 0, 0, 0)
+    const wd = await prisma.workDay.upsert({
+      where: { userId_date: { userId, date: dateOnly } },
+      update: {
+        ...(odometerKm != null && { odometerKm }),
+        ...(req.file?.buffer && {
+          odometerPhotoData: req.file.buffer as unknown as Uint8Array<ArrayBuffer>,
+        }),
+      },
+      create: { userId, date: dateOnly, odometerKm, status: 'PENDENTE' },
+      select: { id: true, odometerKm: true },
+    })
+
+    // define a URL após ter o ID
+    if (req.file?.buffer) {
+      await prisma.workDay.update({
+        where: { id: wd.id },
+        data: { odometerPhotoUrl: `/api/work-days/odometer-photo/${wd.id}` },
+      })
+    }
+
+    res.json({ ok: true, odometerKm: wd.odometerKm })
   } catch (e) { next(e) }
 })
 

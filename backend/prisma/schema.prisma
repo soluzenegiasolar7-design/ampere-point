@@ -84,15 +84,18 @@ model GpsLog {
 }
 
 model WorkDay {
-  id           String     @id @default(uuid())
-  userId       String
-  user         User       @relation(fields: [userId], references: [id])
-  date         DateTime
-  totalKm      Float      @default(0)
-  totalMinutes Int        @default(0)
-  status       WorkStatus @default(PENDENTE)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id                 String     @id @default(uuid())
+  userId             String
+  user               User       @relation(fields: [userId], references: [id])
+  date               DateTime
+  totalKm            Float      @default(0)
+  totalMinutes       Int        @default(0)
+  status             WorkStatus @default(PENDENTE)
+  odometerKm         Float?
+  odometerPhotoData  Bytes?
+  odometerPhotoUrl   String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   @@unique([userId, date])
   @@map("work_days")
