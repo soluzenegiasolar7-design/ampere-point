@@ -32,6 +32,7 @@ export default function EmployeeDayModal({ employee, date, workDay, onClose }: P
   const [trail, setTrail] = useState<[number, number][]>([])
   const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [mapReady, setMapReady] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -47,6 +48,8 @@ export default function EmployeeDayModal({ employee, date, workDay, onClose }: P
         // silently fail — show empty state
       } finally {
         setLoading(false)
+        // pequeno delay para o modal estar visível antes de montar o Leaflet
+        setTimeout(() => setMapReady(true), 100)
       }
     }
     load()
@@ -63,7 +66,7 @@ export default function EmployeeDayModal({ employee, date, workDay, onClose }: P
   const saidaEntry = punches.find(p => p.type === 'SAIDA')
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
       <div className="bg-gray-900 rounded-2xl border border-gray-700 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* header */}
         <div className="flex justify-between items-start p-5 border-b border-gray-800 shrink-0">
@@ -125,11 +128,11 @@ export default function EmployeeDayModal({ employee, date, workDay, onClose }: P
             </div>
 
             {/* mapa com traçado */}
-            {trail.length > 1 && (
+            {trail.length > 1 && mapReady && (
               <div className="p-5 border-b border-gray-800">
                 <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-3">Traçado do dia</p>
                 <div className="rounded-xl overflow-hidden" style={{ height: 220 }}>
-                  <MapContainer center={mapCenter} zoom={12} style={{ height: '100%', width: '100%' }}>
+                  <MapContainer center={mapCenter} zoom={12} style={{ height: '100%', width: '100%' }} key={employee.id}>
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
                     <Polyline positions={trail} color="#4ade80" weight={3} opacity={0.85} />
                     {trail.length > 0 && <Marker position={trail[0]} icon={greenIcon} />}
