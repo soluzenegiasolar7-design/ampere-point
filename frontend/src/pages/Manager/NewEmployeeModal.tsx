@@ -35,7 +35,10 @@ export default function NewEmployeeModal({ onClose, onCreated }: Props) {
       onCreated()
       onClose()
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Erro ao cadastrar funcionário')
+      const data = err.response?.data
+      const msg = data?.error || data?.message || 'Erro ao cadastrar funcionário'
+      const detail = data?.details?.[0]?.message
+      setError(detail ? `${msg}: ${detail}` : msg)
     } finally {
       setLoading(false)
     }

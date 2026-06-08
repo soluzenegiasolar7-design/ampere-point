@@ -23,7 +23,7 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
 
 const createSchema = z.object({
   name: z.string().min(2),
-  email: z.string().email(),
+  email: z.string().min(3).refine(v => v.includes('@'), { message: 'Email deve conter @' }),
   password: z.string().min(6),
   role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE']).optional(),
   unit: z.string().optional(),
