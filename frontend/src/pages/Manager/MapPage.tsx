@@ -106,15 +106,21 @@ export default function MapPage() {
   // modal de detalhes do funcionário
   const [selectedEmployeeModal, setSelectedEmployeeModal] = useState<{id:string;name:string;unit?:string}|null>(null)
 
+  // inativos
+  const [showInactive, setShowInactive] = useState(false)
+  const [inactiveEmployees, setInactiveEmployees] = useState<any[]>([])
+
   useSocket(user?.role)
 
   const loadData = async () => {
-    const [u, w, p] = await Promise.all([
+    const [u, all, w, p] = await Promise.all([
       api.get('/api/users'),
+      api.get('/api/users?includeInactive=true'),
       api.get('/api/work-days/today'),
       api.get('/api/time-entries/all/today'),
     ])
     setEmployees(u.data.filter((x: any) => x.role === 'EMPLOYEE'))
+    setInactiveEmployees(all.data.filter((x: any) => x.role === 'EMPLOYEE' && !x.isActive))
     setWorkDays(w.data)
     setAllPunches(p.data)
 
@@ -269,7 +275,17 @@ export default function MapPage() {
       setEditEmp(null)
       loadData()
     } catch (err: any) {
-      setEditMsg({ type:'err', text:`❌ ${err.response?.data?.message || 'Erro ao inativar'}` })
+      setEditMsg({ type:'err', text:`❌ ${err.response?.data?.error || err.response?.data?.message || 'Erro ao inativar'}` })
+    }
+  }
+
+  const reativarEmp = async (emp: any) => {
+    if (!window.confirm(`Reativar ${emp.name}? Ele voltará a conseguir fazer login.`)) return
+    try {
+      await api.patch(`/api/users/${emp.id}`, { isActive: true })
+      loadData()
+    } catch (err: any) {
+      alert(`Erro ao reativar: ${err.response?.data?.error || 'Tente novamente'}`)
     }
   }
 
@@ -655,6 +671,31 @@ export default function MapPage() {
                   </div>
                 </div>
               ))}
+
+              {/* inativos */}
+              {inactiveEmployees.length > 0 && (
+                <div className="mt-4">
+                  <button
+                    onClick={() => setShowInactive(v => !v)}
+                    className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1 mb-2"
+                  >
+                    {showInactive ? '▾' : '▸'} Inativos ({inactiveEmployees.length})
+                  </button>
+                  {showInactive && inactiveEmployees.map(emp => (
+                    <div key={emp.id} className="bg-gray-900 border border-gray-700 rounded-xl p-3 mb-2 opacity-70">
+                      <p className="font-semibold text-gray-400 text-sm">{emp.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{emp.email}</p>
+                      <div className="flex gap-2 mt-2 items-center">
+                        <span className="text-xs bg-gray-800 text-gray-500 px-2 py-0.5 rounded-full flex-1">{emp.unit}</span>
+                        <button
+                          onClick={() => reativarEmp(emp)}
+                          className="text-xs bg-green-800 hover:bg-green-700 text-green-300 px-2 py-0.5 rounded-lg transition-colors"
+                        >Reativar</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* área direita */}

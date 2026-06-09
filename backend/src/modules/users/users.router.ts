@@ -9,9 +9,9 @@ router.use(requireAuth)
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const unit = req.query.unit as string | undefined
-    // cast to string if array
     const unitStr = Array.isArray(unit) ? unit[0] : unit
-    res.json(await listUsers(unitStr))
+    const includeInactive = req.query.includeInactive === 'true'
+    res.json(await listUsers(unitStr, includeInactive))
   } catch (e) { next(e) }
 })
 

@@ -3,10 +3,10 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../shared/errors/AppError'
 import { UserRole } from '@prisma/client'
 
-export async function listUsers(unit?: string) {
+export async function listUsers(unit?: string, includeInactive?: boolean) {
   return prisma.user.findMany({
-    where: { isActive: true, ...(unit ? { unit } : {}) },
-    select: { id: true, name: true, email: true, role: true, unit: true, phone: true, pis: true, cpf: true, createdAt: true },
+    where: { ...(includeInactive ? {} : { isActive: true }), ...(unit ? { unit } : {}) },
+    select: { id: true, name: true, email: true, role: true, unit: true, phone: true, pis: true, cpf: true, isActive: true, createdAt: true },
     orderBy: { name: 'asc' },
   })
 }
