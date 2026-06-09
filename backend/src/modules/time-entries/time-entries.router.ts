@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { punch, listTodayEntries, listAllTodayEntries, listEntriesByDate, nextPunchType, recalcTotalMinutes } from './time-entries.service'
+import { punch, listTodayEntries, listAllTodayEntries, listAllEntriesByDate, listEntriesByDate, nextPunchType, recalcTotalMinutes } from './time-entries.service'
 import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
 import multer from 'multer'
 import { getIo } from '../../socket/io'
@@ -124,6 +124,14 @@ router.get('/next', async (req: Request, res: Response, next: NextFunction) => {
 router.get('/all/today', requireRole('ADMIN', 'MANAGER'), async (_req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(await listAllTodayEntries())
+  } catch (e) { next(e) }
+})
+
+router.get('/all', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const date = String(Array.isArray(req.query.date) ? req.query.date[0] : (req.query.date || new Date().toISOString()))
+    const entries = await listAllEntriesByDate(date)
+    res.json(entries.map((e: any) => ({ ...e, photoData: undefined, odometerPhotoData: undefined })))
   } catch (e) { next(e) }
 })
 

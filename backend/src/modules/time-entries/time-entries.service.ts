@@ -77,6 +77,16 @@ export async function listAllTodayEntries() {
   })
 }
 
+export async function listAllEntriesByDate(date: string) {
+  const d = new Date(date); d.setHours(0, 0, 0, 0)
+  const end = new Date(date); end.setHours(23, 59, 59, 999)
+  return prisma.timeEntry.findMany({
+    where: { timestamp: { gte: d, lte: end } },
+    orderBy: { timestamp: 'desc' },
+    include: { user: { select: { id: true, name: true, unit: true } } },
+  })
+}
+
 export async function recalcTotalMinutes(userId: string, dateOnly: Date) {
   const start = new Date(dateOnly); start.setHours(0, 0, 0, 0)
   const end = new Date(dateOnly); end.setHours(23, 59, 59, 999)

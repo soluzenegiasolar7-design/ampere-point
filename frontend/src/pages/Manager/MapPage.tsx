@@ -63,6 +63,13 @@ export default function MapPage() {
   const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7))
   const [monthlyExportLoading, setMonthlyExportLoading] = useState(false)
 
+  // mapa — sidebar colapsável
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  // pontos — filtro por data
+  const [punchDate, setPunchDate] = useState(new Date().toISOString().slice(0, 10))
+  const [punchesLoading, setPunchesLoading] = useState(false)
+
   // modal de detalhes do funcionário
   const [selectedEmployeeModal, setSelectedEmployeeModal] = useState<{id:string;name:string;unit?:string}|null>(null)
 
@@ -79,7 +86,6 @@ export default function MapPage() {
     setAllPunches(p.data)
 
     // inicializa pins com a coordenada do ponto mais recente de cada funcionário
-    // p.data vem ordenado desc, então o primeiro por usuário é o mais recente
     const seen = new Set<string>()
     for (const entry of p.data) {
       const uid = entry.user?.id ?? entry.userId
@@ -94,7 +100,21 @@ export default function MapPage() {
     }
   }
 
+  const loadPunchesByDate = async (date: string) => {
+    setPunchesLoading(true)
+    try {
+      const { data } = await api.get(`/api/time-entries/all?date=${date}`)
+      setAllPunches(data)
+    } finally {
+      setPunchesLoading(false)
+    }
+  }
+
   useEffect(() => { loadData() }, [])
+
+  useEffect(() => {
+    if (tab === 'pontos') loadPunchesByDate(punchDate)
+  }, [tab, punchDate])
 
   const getWorkDay = (uid: string) => workDays.find((w: any) => w.userId === uid)
   const getLoc    = (uid: string) => userLocations[uid]
@@ -236,59 +256,70 @@ export default function MapPage() {
 
         {/* MAPA */}
         {tab === 'mapa' && (
-          <div className="flex h-full">
+          <div className="flex h-full relative">
+            {/* toggle sidebar */}
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              className="absolute z-[1000] top-2 left-2 bg-gray-900 border border-gray-700 text-gray-300 hover:text-white rounded-lg w-8 h-8 flex items-center justify-center shadow-lg transition-all"
+              style={sidebarOpen ? { left: '248px' } : { left: '8px' }}
+              title={sidebarOpen ? 'Ocultar lista' : 'Mostrar lista'}
+            >
+              {sidebarOpen ? '◀' : '▶'}
+            </button>
+
             {/* sidebar */}
-            <div className="w-64 bg-gray-900 border-r border-gray-800 overflow-y-auto shrink-0 p-3">
-              <button
-                onClick={exportCSV}
-                disabled={exportLoading}
-                className="w-full mb-3 py-2 text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
-              >
-                {exportLoading ? 'Exportando...' : '⬇️ Exportar CSV'}
-              </button>
-              <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-3">Funcionários</p>
-              {employees.map(emp => {
-                const wd = getWorkDay(emp.id)
-                const loc = getLoc(emp.id)
-                const isActive = wd?.status === 'EM_SERVICO'
-                return (
-                  <div
-                    key={emp.id}
-                    className={`rounded-xl mb-2 border transition-colors ${
-                      selectedUser === emp.id ? 'bg-green-900/30 border-green-700' : 'bg-gray-800 border-gray-700 hover:border-gray-600'
-                    }`}
-                  >
-                    {/* nome clicável → modal de detalhes */}
+            <div className={`${sidebarOpen ? 'w-64' : 'w-0'} bg-gray-900 border-r border-gray-800 overflow-hidden shrink-0 transition-all duration-200`}>
+              <div className="p-3 w-64">
+                <button
+                  onClick={exportCSV}
+                  disabled={exportLoading}
+                  className="w-full mb-3 py-2 text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
+                >
+                  {exportLoading ? 'Exportando...' : '⬇️ Exportar CSV'}
+                </button>
+                <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-3">Funcionários</p>
+                {employees.map(emp => {
+                  const wd = getWorkDay(emp.id)
+                  const loc = getLoc(emp.id)
+                  const isActive = wd?.status === 'EM_SERVICO'
+                  return (
                     <div
-                      className="cursor-pointer p-3 pb-1"
-                      onClick={() => setSelectedEmployeeModal({ id: emp.id, name: emp.name, unit: emp.unit })}
+                      key={emp.id}
+                      className={`rounded-xl mb-2 border transition-colors ${
+                        selectedUser === emp.id ? 'bg-green-900/30 border-green-700' : 'bg-gray-800 border-gray-700 hover:border-gray-600'
+                      }`}
                     >
-                      <div className="flex justify-between mb-1">
-                        <span className="font-medium text-white text-sm hover:text-green-400 transition-colors">{emp.name}</span>
-                        <span className={`text-xs font-bold ${isActive ? 'text-green-400' : 'text-gray-500'}`}>
-                          {isActive ? '● Campo' : '○ Fora'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500">{emp.unit}</p>
-                      {wd && (
-                        <div className="flex gap-3 mt-1 text-xs">
-                          <span className="text-blue-400">📍 {wd.totalKm.toFixed(1)} km</span>
-                          <span className="text-gray-400">⏱ {Math.floor(wd.totalMinutes/60)}h{wd.totalMinutes%60}m</span>
+                      <div
+                        className="cursor-pointer p-3 pb-1"
+                        onClick={() => setSelectedEmployeeModal({ id: emp.id, name: emp.name, unit: emp.unit })}
+                      >
+                        <div className="flex justify-between mb-1">
+                          <span className="font-medium text-white text-sm hover:text-green-400 transition-colors">{emp.name}</span>
+                          <span className={`text-xs font-bold ${isActive ? 'text-green-400' : 'text-gray-500'}`}>
+                            {isActive ? '● Campo' : '○ Fora'}
+                          </span>
                         </div>
-                      )}
-                      {loc && <p className="text-xs text-gray-600 mt-1">Última pos: {fmt(loc.timestamp)}</p>}
+                        <p className="text-xs text-gray-500">{emp.unit}</p>
+                        {wd && (
+                          <div className="flex gap-3 mt-1 text-xs">
+                            <span className="text-blue-400">📍 {wd.totalKm.toFixed(1)} km</span>
+                            <span className="text-gray-400">⏱ {Math.floor(wd.totalMinutes/60)}h{wd.totalMinutes%60}m</span>
+                          </div>
+                        )}
+                        {loc && <p className="text-xs text-gray-600 mt-1">Última pos: {fmt(loc.timestamp)}</p>}
+                      </div>
+                      <button
+                        onClick={() => loadTrail(emp.id)}
+                        className="w-full text-xs text-gray-500 hover:text-green-400 py-1.5 px-3 border-t border-gray-700 transition-colors"
+                      >
+                        {selectedUser === emp.id ? '🗺️ Ocultar traçado' : '🗺️ Ver traçado'}
+                      </button>
                     </div>
-                    {/* botão de traçado separado */}
-                    <button
-                      onClick={() => loadTrail(emp.id)}
-                      className="w-full text-xs text-gray-500 hover:text-green-400 py-1.5 px-3 border-t border-gray-700 transition-colors"
-                    >
-                      {selectedUser === emp.id ? '🗺️ Ocultar traçado' : '🗺️ Ver traçado'}
-                    </button>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
+
             {/* mapa */}
             <div className="flex-1">
               <MapContainer center={[-5.7945,-35.2110]} zoom={12} style={{height:'100%',width:'100%'}}>
@@ -448,15 +479,30 @@ export default function MapPage() {
               </div>
             )}
 
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-white">Pontos de Hoje</h2>
-              <button onClick={loadData} className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg border border-gray-700">
-                🔄 Atualizar
-              </button>
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-bold text-white">Registros de Ponto</h2>
+                {punchesLoading && <span className="text-xs text-gray-500 animate-pulse">Carregando...</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={punchDate}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={e => setPunchDate(e.target.value)}
+                  className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-green-500"
+                />
+                <button
+                  onClick={() => loadPunchesByDate(punchDate)}
+                  className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg border border-gray-700"
+                >
+                  🔄
+                </button>
+              </div>
             </div>
 
-            {allPunches.length === 0 && (
-              <p className="text-gray-500 text-center py-16">Nenhum ponto registrado hoje.</p>
+            {!punchesLoading && allPunches.length === 0 && (
+              <p className="text-gray-500 text-center py-16">Nenhum ponto registrado nesta data.</p>
             )}
 
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
