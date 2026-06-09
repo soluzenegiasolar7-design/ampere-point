@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  Zap, LogOut, MapPin, Clock, CheckCircle2, Navigation,
+  Zap, LogOut, Clock, CheckCircle2, Navigation,
   Camera, Car, AlertCircle, ChevronRight, RefreshCw, X
 } from 'lucide-react'
 import { api } from '../../services/api'
@@ -295,20 +295,13 @@ export default function PunchPage() {
 
         {/* Métricas do dia */}
         {workDay && entries.length > 0 && (
-          <div className="grid grid-cols-2 gap-3">
-            <Card className="p-4 text-center">
-              <MapPin size={16} className="text-blue-400 mx-auto mb-1" />
-              <p className="text-xl font-bold text-blue-400">{workDay.totalKm.toFixed(1)} km</p>
-              <p className="text-xs text-slate-500 mt-0.5">GPS registrado</p>
-            </Card>
-            <Card className="p-4 text-center">
-              <Clock size={16} className="text-emerald-400 mx-auto mb-1" />
-              <p className="text-xl font-bold text-emerald-400">
-                {Math.floor(workDay.totalMinutes / 60)}h{String(workDay.totalMinutes % 60).padStart(2, '0')}m
-              </p>
-              <p className="text-xs text-slate-500 mt-0.5">Tempo trabalhado</p>
-            </Card>
-          </div>
+          <Card className="p-4 text-center">
+            <Clock size={16} className="text-emerald-400 mx-auto mb-1" />
+            <p className="text-xl font-bold text-emerald-400">
+              {Math.floor(workDay.totalMinutes / 60)}h{String(workDay.totalMinutes % 60).padStart(2, '0')}m
+            </p>
+            <p className="text-xs text-slate-500 mt-0.5">Tempo trabalhado</p>
+          </Card>
         )}
 
         {/* Card odômetro */}
@@ -459,11 +452,6 @@ export default function PunchPage() {
                 value={odoKm} onChange={e => setOdoKm(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-5 text-white text-3xl font-bold placeholder-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 text-center transition-colors"
               />
-              {workDay?.totalKm > 0 && (
-                <p className="text-xs text-slate-500 text-center mt-2 flex items-center justify-center gap-1">
-                  <Navigation size={11} /> GPS registrou {workDay.totalKm.toFixed(1)} km
-                </p>
-              )}
             </div>
 
             <div>

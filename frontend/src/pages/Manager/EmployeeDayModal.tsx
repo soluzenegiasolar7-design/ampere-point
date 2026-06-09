@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Polyline, Marker } from 'react-leaflet'
 import L from 'leaflet'
-import { X, MapPin, Camera, Car, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, MapPin, Camera, Car, Clock, Navigation, ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../../services/api'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
@@ -124,8 +124,9 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
         ) : (
           <div className="flex-1 overflow-y-auto">
             {/* Resumo */}
-            <div className="grid grid-cols-3 gap-3 p-5 border-b border-slate-800">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-5 border-b border-slate-800">
               {[
+                { label: 'GPS percorrido', value: workDayData ? `${workDayData.totalKm.toFixed(1)} km` : '—', icon: <Navigation size={14} />, color: 'text-blue-400' },
                 { label: 'Tacômetro', value: workDayData?.odometerKm != null ? `${Number(workDayData.odometerKm).toFixed(0)} km` : '—', icon: <Car size={14} />, color: 'text-amber-400' },
                 { label: 'Trabalhado', value: workDayData ? `${Math.floor(workDayData.totalMinutes / 60)}h${String(workDayData.totalMinutes % 60).padStart(2, '0')}m` : '—', icon: <Clock size={14} />, color: 'text-emerald-400' },
                 { label: 'Horas extras', value: extraMinutes > 0 ? `+${Math.floor(extraMinutes / 60)}h${String(extraMinutes % 60).padStart(2, '0')}m` : '—', icon: <Clock size={14} />, color: extraMinutes > 0 ? 'text-yellow-400' : 'text-slate-600' },
