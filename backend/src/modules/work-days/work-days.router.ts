@@ -184,10 +184,13 @@ router.get('/summary/:userId', requireRole('ADMIN', 'MANAGER'), async (req: Requ
       select: { totalKm: true, odometerKm: true, totalMinutes: true, date: true },
     })
 
-    const gpsKm      = days.reduce((s, d) => s + (d.totalKm ?? 0), 0)
-    const odometerKm = days.reduce((s, d) => s + (d.odometerKm ?? 0), 0)
-    const totalMin   = days.reduce((s, d) => s + (d.totalMinutes ?? 0), 0)
-    const workDays   = days.length
+    // só contabiliza dias onde o funcionário efetivamente trabalhou (totalMinutes > 0)
+    const workedDays = days.filter(d => (d.totalMinutes ?? 0) > 0)
+
+    const gpsKm      = workedDays.reduce((s, d) => s + (d.totalKm ?? 0), 0)
+    const odometerKm = workedDays.reduce((s, d) => s + (d.odometerKm ?? 0), 0)
+    const totalMin   = workedDays.reduce((s, d) => s + (d.totalMinutes ?? 0), 0)
+    const workDays   = workedDays.length
 
     res.json({ gpsKm, odometerKm, totalMinutes: totalMin, workDays })
   } catch (e) { next(e) }
