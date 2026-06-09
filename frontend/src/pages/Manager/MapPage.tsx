@@ -95,6 +95,7 @@ export default function MapPage() {
   const [histSummary, setHistSummary] = useState<{gpsKm:number;odometerKm:number;totalMinutes:number;workDays:number}|null>(null)
   const [histLoading, setHistLoading] = useState(false)
   const [histZoomedPhoto, setHistZoomedPhoto] = useState<string | null>(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   // modal de detalhes do funcionário
   const [selectedEmployeeModal, setSelectedEmployeeModal] = useState<{id:string;name:string;unit?:string}|null>(null)
@@ -243,111 +244,183 @@ export default function MapPage() {
     }
   }
 
-  const exportHistoricoPDF = () => {
+  const exportHistoricoPDF = async () => {
     if (!histSummary || !histEmployee) return
-    const emp = employees.find(e => e.id === histEmployee)
-    const empName = emp?.name ?? 'Funcionário'
-    const dateFromFmt = new Date(histDateFrom + 'T12:00:00').toLocaleDateString('pt-BR')
-    const dateToFmt   = new Date(histDateTo   + 'T12:00:00').toLocaleDateString('pt-BR')
+    setPdfLoading(true)
+    try {
+      const emp = employees.find(e => e.id === histEmployee)
+      const empName    = emp?.name ?? 'Funcionario'
+      const empUnit    = emp?.unit ?? ''
+      const dateFromFmt = new Date(histDateFrom + 'T12:00:00').toLocaleDateString('pt-BR')
+      const dateToFmt   = new Date(histDateTo   + 'T12:00:00').toLocaleDateString('pt-BR')
+      const standardMin = histSummary.workDays * 480
+      const extraMin    = Math.max(0, histSummary.totalMinutes - standardMin)
+      const fmtMin = (m: number) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
 
-    // horas extras: padrão 8h/dia (480 min) por dia trabalhado
-    const standardMin = histSummary.workDays * 480
-    const extraMin    = Math.max(0, histSummary.totalMinutes - standardMin)
-    const fmtMin = (m: number) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
+      // busca todas as fotos em paralelo (base64)
+      const photoMap: Record<string, string> = {}
+      await Promise.all(histPunches.map(async (p: any) => {
+        if (!p.photoUrl) return
+        try {
+          const res = await api.get(p.photoUrl, { responseType: 'blob' })
+          const b64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.onerror = reject
+            reader.readAsDataURL(res.data)
+          })
+          photoMap[p.id] = b64
+        } catch { /* foto indisponivel */ }
+      }))
 
-    const doc = new jsPDF()
+      const doc = new jsPDF({ format: 'a4', unit: 'mm' })
+      const W = doc.internal.pageSize.width   // 210
+      const H = doc.internal.pageSize.height  // 297
 
-    // cabeçalho
-    doc.setFontSize(18)
-    doc.setFont('helvetica', 'bold')
-    doc.text('AmperePoint - Relatorio de Ponto', 14, 20)
+      // ── cabeçalho repetido em cada página ──────────────────────────────
+      const drawHeader = () => {
+        doc.setFillColor(255, 255, 255)
+        doc.rect(0, 0, W, 58, 'F')
 
-    doc.setFontSize(11)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Funcionário: ${empName}`, 14, 30)
-    doc.text(`Unidade: ${emp?.unit ?? '—'}`, 14, 37)
-    doc.text(`Período: ${dateFromFmt} a ${dateToFmt}`, 14, 44)
-    doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 51)
+        doc.setFontSize(15)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(40, 40, 40)
+        doc.text('AmperePoint', W / 2, 14, { align: 'center' })
 
-    // linha separadora
-    doc.setLineWidth(0.5)
-    doc.line(14, 55, 196, 55)
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'normal')
+        doc.text('Extrato de Pontos', W / 2, 21, { align: 'center' })
 
-    // card resumo
-    autoTable(doc, {
-      startY: 60,
-      head: [['KM por GPS', 'KM Tacometro', 'Horas Trabalhadas', 'Dias Trabalhados', 'Horas Extras']],
-      body: [[
-        `${histSummary.gpsKm.toFixed(1)} km`,
-        histSummary.odometerKm > 0 ? `${histSummary.odometerKm.toFixed(1)} km` : '—',
-        fmtMin(histSummary.totalMinutes),
-        String(histSummary.workDays),
-        extraMin > 0 ? fmtMin(extraMin) : '—',
-      ]],
-      headStyles: { fillColor: [22, 163, 74], fontStyle: 'bold' },
-      bodyStyles: { halign: 'center' },
-      margin: { left: 14, right: 14 },
-    })
+        doc.setDrawColor(210, 210, 210)
+        doc.setLineWidth(0.4)
+        doc.line(14, 24, W - 14, 24)
 
-    // tabela de pontos
-    const tableY = (doc as any).lastAutoTable.finalY + 10
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'bold')
-    doc.text('Registros de Ponto', 14, tableY)
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'bold')
+        doc.text(empName.toUpperCase(), W / 2, 31, { align: 'center' })
 
-    const PUNCH_LABELS_PDF: Record<string, string> = {
-      ENTRADA: 'Entrada',
-      SAIDA_ALMOCO: 'Saida Almoco',
-      RETORNO_ALMOCO: 'Retorno Almoco',
-      SAIDA: 'Saida',
+        // caixa de dados
+        doc.setDrawColor(200, 200, 200)
+        doc.setLineWidth(0.3)
+        doc.rect(14, 34, W - 28, 18)
+
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'bold')
+        doc.text('Colaborador:', 18, 40)
+        doc.setFont('helvetica', 'normal')
+        doc.text(empName, 18, 46)
+
+        doc.setFont('helvetica', 'bold')
+        doc.text('Unidade:', W / 2 - 10, 40)
+        doc.setFont('helvetica', 'normal')
+        doc.text(empUnit, W / 2 - 10, 46)
+
+        doc.setFont('helvetica', 'bold')
+        doc.text('Periodo de referencia:', W - 76, 40)
+        doc.setFont('helvetica', 'normal')
+        doc.text(`${dateFromFmt} a ${dateToFmt}`, W - 76, 46)
+      }
+
+      drawHeader()
+
+      // ── tabela de pontos ────────────────────────────────────────────────
+      const LABELS: Record<string, string> = {
+        ENTRADA: 'Entrada', SAIDA_ALMOCO: 'Saida Almoco',
+        RETORNO_ALMOCO: 'Retorno Almoco', SAIDA: 'Saida',
+      }
+
+      const rows = histPunches.map((p: any) => {
+        const dt = new Date(p.timestamp)
+        return [
+          `${dt.toLocaleDateString('pt-BR')} ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`,
+          LABELS[p.type] ?? p.type,
+          p.address ?? '-',
+          p.odometerKm != null ? `${p.odometerKm} km` : '-',
+          '', // foto via didDrawCell
+        ]
+      })
+
+      autoTable(doc, {
+        startY: 56,
+        margin: { top: 56, left: 14, right: 14 },
+        head: [['Data do Ponto', 'Tipo', 'Localizacao', 'KM Tac.', 'Foto']],
+        body: rows,
+        headStyles: {
+          fillColor: [245, 245, 245], textColor: [40, 40, 40],
+          fontStyle: 'bold', lineWidth: 0.3, lineColor: [200, 200, 200], fontSize: 8.5,
+        },
+        bodyStyles: {
+          minCellHeight: 28, valign: 'middle',
+          lineWidth: 0.2, lineColor: [220, 220, 220], fontSize: 8, textColor: [50, 50, 50],
+        },
+        alternateRowStyles: { fillColor: [250, 250, 250] },
+        columnStyles: {
+          0: { cellWidth: 36 },
+          1: { cellWidth: 26 },
+          2: { cellWidth: 70 },
+          3: { cellWidth: 18 },
+          4: { cellWidth: 27 },
+        },
+        didDrawCell: (data) => {
+          if (data.section === 'body' && data.column.index === 4) {
+            const p = histPunches[data.row.index]
+            const img = photoMap[p?.id]
+            if (img) {
+              const s = Math.min(data.cell.height - 4, 23)
+              doc.addImage(img, 'JPEG',
+                data.cell.x + (data.cell.width - s) / 2,
+                data.cell.y + (data.cell.height - s) / 2,
+                s, s)
+            }
+          }
+        },
+        didDrawPage: (data) => {
+          if (data.pageNumber > 1) drawHeader()
+        },
+      })
+
+      // ── resumo KM ───────────────────────────────────────────────────────
+      const resumoY = (doc as any).lastAutoTable.finalY + 8
+      autoTable(doc, {
+        startY: resumoY,
+        head: [['KM por GPS', 'KM Tacometro', 'Horas Trabalhadas', 'Dias Trabalhados', 'Horas Extras']],
+        body: [[
+          `${histSummary.gpsKm.toFixed(1)} km`,
+          histSummary.odometerKm > 0 ? `${histSummary.odometerKm.toFixed(1)} km` : '-',
+          fmtMin(histSummary.totalMinutes),
+          String(histSummary.workDays),
+          extraMin > 0 ? fmtMin(extraMin) : '-',
+        ]],
+        headStyles: {
+          fillColor: [245, 245, 245], textColor: [40, 40, 40],
+          fontStyle: 'bold', lineWidth: 0.3, lineColor: [200, 200, 200], fontSize: 8.5,
+        },
+        bodyStyles: { halign: 'center', lineWidth: 0.2, lineColor: [220, 220, 220], fontSize: 9 },
+        margin: { left: 14, right: 14 },
+      })
+
+      // ── assinaturas ─────────────────────────────────────────────────────
+      let sigY = (doc as any).lastAutoTable.finalY + 20
+      if (sigY + 40 > H) { doc.addPage(); drawHeader(); sigY = 70 }
+
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(40, 40, 40)
+      doc.setDrawColor(100, 100, 100)
+      doc.setLineWidth(0.4)
+
+      doc.line(14, sigY + 20, 90, sigY + 20)
+      doc.text(empName, 52, sigY + 26, { align: 'center' })
+      doc.text('Assinatura do Funcionario', 52, sigY + 32, { align: 'center' })
+
+      doc.line(120, sigY + 20, 196, sigY + 20)
+      doc.text('Gestor Responsavel', 158, sigY + 26, { align: 'center' })
+      doc.text('Assinatura do Gestor', 158, sigY + 32, { align: 'center' })
+
+      doc.save(`extrato-ponto-${empName.replace(/\s+/g, '-')}-${histDateFrom}-${histDateTo}.pdf`)
+    } finally {
+      setPdfLoading(false)
     }
-
-    const punchRows = histPunches.map((p: any) => {
-      const dt = new Date(p.timestamp)
-      return [
-        dt.toLocaleDateString('pt-BR'),
-        PUNCH_LABELS_PDF[p.type] ?? p.type,
-        dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        p.odometerKm != null ? `${p.odometerKm} km` : '-',
-        p.address ?? '-',
-      ]
-    })
-
-    autoTable(doc, {
-      startY: tableY + 5,
-      head: [['Data', 'Tipo', 'Hora', 'Tacômetro', 'Endereço']],
-      body: punchRows,
-      headStyles: { fillColor: [30, 30, 30], textColor: [255, 255, 255] },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-      columnStyles: { 4: { cellWidth: 70, fontSize: 8 } },
-      margin: { left: 14, right: 14 },
-    })
-
-    // assinaturas
-    const sigY = (doc as any).lastAutoTable.finalY + 20
-    // garante que cabe na página, senão adiciona nova
-    const pageH = doc.internal.pageSize.height
-    const finalY = sigY + 40 > pageH ? pageH - 55 : sigY
-
-    if (sigY + 40 > pageH) doc.addPage()
-
-    const usedY = sigY + 40 > pageH ? 20 : sigY
-
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'normal')
-
-    // assinatura funcionário
-    doc.line(14, usedY + 25, 90, usedY + 25)
-    doc.text(`${empName}`, 14, usedY + 31)
-    doc.text('Assinatura do Funcionário', 14, usedY + 37)
-
-    // assinatura gestor
-    doc.line(120, usedY + 25, 196, usedY + 25)
-    doc.text('Gestor Responsável', 120, usedY + 31)
-    doc.text('Assinatura do Gestor', 120, usedY + 37)
-
-    doc.save(`ponto-${empName.replace(/\s+/g, '-')}-${histDateFrom}-${histDateTo}.pdf`)
-    void finalY
   }
 
   const inField = employees.filter(e => getWorkDay(e.id)?.status === 'EM_SERVICO').length
@@ -772,10 +845,11 @@ export default function MapPage() {
 
                 {histSummary && (
                   <button
-                    onClick={exportHistoricoPDF}
-                    className="mt-3 w-full py-2 bg-blue-700 hover:bg-blue-600 text-white font-bold rounded-lg text-sm transition-colors"
+                    onClick={() => { void exportHistoricoPDF() }}
+                    disabled={pdfLoading}
+                    className="mt-3 w-full py-2 bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white font-bold rounded-lg text-sm transition-colors"
                   >
-                    📄 Exportar PDF
+                    {pdfLoading ? 'Gerando PDF...' : '📄 Exportar PDF'}
                   </button>
                 )}
               </div>
