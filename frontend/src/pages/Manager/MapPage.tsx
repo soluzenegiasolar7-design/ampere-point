@@ -313,23 +313,24 @@ export default function MapPage() {
         doc.setFillColor(255, 255, 255)
         doc.rect(0, 0, W, 62, 'F')
 
+        // logo à esquerda em proporção 1:1 (arquivo é 1080×1080)
+        const logoSize = 22
         if (logoB64) {
-          // logo centralizada: largura 38mm, proporção quadrada original → ajusta altura
-          const logoW = 38, logoH = 19
-          doc.addImage(logoB64, 'PNG', (W - logoW) / 2, 5, logoW, logoH)
-        } else {
-          doc.setFontSize(15)
-          doc.setFont('helvetica', 'bold')
-          doc.setTextColor(40, 40, 40)
-          doc.text('Ampere Solucoes', W / 2, 14, { align: 'center' })
+          doc.addImage(logoB64, 'PNG', 14, 4, logoSize, logoSize)
         }
 
-        doc.setFontSize(10)
+        // nome e subtítulo ao lado da logo
+        const textX = logoB64 ? 14 + logoSize + 4 : 14
+        doc.setFontSize(13)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(40, 40, 40)
+        doc.text('Ampere Solucoes', textX, 13)
+
+        doc.setFontSize(9)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(80, 80, 80)
-        doc.text('Extrato de Pontos', W / 2, 27, { align: 'center' })
+        doc.text('Extrato de Pontos', textX, 21)
 
-        doc.setDrawColor(210, 210, 210)
         doc.setDrawColor(210, 210, 210)
         doc.setLineWidth(0.4)
         doc.line(14, 30, W - 14, 30)
@@ -485,7 +486,7 @@ export default function MapPage() {
 
       {/* ── HEADER ── */}
       <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex justify-between items-center shrink-0">
-        <img src="/ampere-point/logo.png" alt="Ampere Soluções" className="h-8 w-auto" />
+        <img src="/ampere-point/logo.png" alt="Ampere Soluções" className="h-12 w-auto" />
         <div className="flex gap-3 text-sm items-center">
           <span className="text-green-400">● {inField} em campo</span>
           <button onClick={logout} className="text-gray-400 hover:text-white">Sair</button>
