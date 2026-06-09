@@ -74,7 +74,6 @@ export default function MapPage() {
 
   // foto ampliada
   const [zoomedPhoto, setZoomedPhoto] = useState<string|null>(null)
-  const [exportLoading, setExportLoading] = useState(false)
   const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7))
   const [monthlyExportLoading, setMonthlyExportLoading] = useState(false)
 
@@ -209,18 +208,6 @@ export default function MapPage() {
     setSelectedUser(uid)
   }
 
-  const exportCSV = async () => {
-    setExportLoading(true)
-    try {
-      const date = new Date().toISOString().slice(0, 10)
-      const res = await api.get(`/api/work-days/export?date=${date}`, { responseType: 'blob' })
-      const url = URL.createObjectURL(res.data)
-      const a = document.createElement('a'); a.href = url; a.download = `ponto-${date}.csv`; a.click()
-      URL.revokeObjectURL(url)
-    } catch { /* silently fail */ } finally {
-      setExportLoading(false)
-    }
-  }
 
   const exportMonthlyCSV = async () => {
     setMonthlyExportLoading(true)
