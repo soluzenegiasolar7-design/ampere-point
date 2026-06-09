@@ -72,6 +72,12 @@ export default function MapPage() {
   const [formLoading, setFormLoading] = useState(false)
   const [formMsg, setFormMsg] = useState<{type:'ok'|'err', text:string}|null>(null)
 
+  // edição de funcionário
+  const [editEmp, setEditEmp] = useState<any|null>(null)
+  const [editForm, setEditForm] = useState({ name:'', email:'', role:'EMPLOYEE', unit:'Natal', phone:'', cpf:'', pis:'', password:'' })
+  const [editLoading, setEditLoading] = useState(false)
+  const [editMsg, setEditMsg] = useState<{type:'ok'|'err', text:string}|null>(null)
+
   // foto ampliada
   const [zoomedPhoto, setZoomedPhoto] = useState<string|null>(null)
   const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7))
@@ -222,7 +228,49 @@ export default function MapPage() {
     }
   }
 
-  const setF = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+  const setF  = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+  const setEF = (k: string, v: string) => setEditForm(f => ({ ...f, [k]: v }))
+
+  const openEdit = (emp: any) => {
+    setEditEmp(emp)
+    setEditForm({ name: emp.name, email: emp.email, role: emp.role, unit: emp.unit || 'Natal', phone: emp.phone || '', cpf: emp.cpf || '', pis: emp.pis || '', password: '' })
+    setEditMsg(null)
+  }
+
+  const submitEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setEditMsg(null)
+    setEditLoading(true)
+    try {
+      await api.patch(`/api/users/${editEmp.id}`, {
+        name: editForm.name,
+        role: editForm.role,
+        unit: editForm.unit,
+        phone: editForm.phone || undefined,
+        cpf: editForm.cpf || undefined,
+        pis: editForm.pis || undefined,
+        ...(editForm.password ? { password: editForm.password } : {}),
+      })
+      setEditMsg({ type:'ok', text:'✅ Dados atualizados com sucesso!' })
+      loadData()
+    } catch (err: any) {
+      setEditMsg({ type:'err', text:`❌ ${err.response?.data?.message || 'Erro ao atualizar'}` })
+    } finally {
+      setEditLoading(false)
+    }
+  }
+
+  const inactivateEmp = async () => {
+    if (!editEmp) return
+    if (!window.confirm(`Inativar ${editEmp.name}? Ele não poderá mais fazer login.`)) return
+    try {
+      await api.patch(`/api/users/${editEmp.id}`, { isActive: false })
+      setEditEmp(null)
+      loadData()
+    } catch (err: any) {
+      setEditMsg({ type:'err', text:`❌ ${err.response?.data?.message || 'Erro ao inativar'}` })
+    }
+  }
 
   const submitForm = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -582,19 +630,27 @@ export default function MapPage() {
         {tab === 'funcionarios' && (
           <div className="flex h-full overflow-hidden">
             {/* lista */}
-            <div className="w-72 border-r border-gray-800 overflow-y-auto p-4">
-              <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-3">Cadastrados ({employees.length})</p>
+            <div className="w-72 border-r border-gray-800 overflow-y-auto p-4 flex flex-col gap-2">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold">Cadastrados ({employees.length})</p>
+                <button
+                  onClick={() => setEditEmp(null)}
+                  className="text-xs bg-green-700 hover:bg-green-600 text-white px-2 py-1 rounded-lg font-semibold transition-colors"
+                >+ Novo</button>
+              </div>
               {employees.map(emp => (
                 <div
                   key={emp.id}
-                  className="bg-gray-800 border border-gray-700 rounded-xl p-3 mb-2 cursor-pointer hover:border-green-700 transition-colors"
-                  onClick={() => setSelectedEmployeeModal({ id: emp.id, name: emp.name, unit: emp.unit })}
+                  className={`bg-gray-800 border rounded-xl p-3 transition-colors ${editEmp?.id === emp.id ? 'border-green-500' : 'border-gray-700'}`}
                 >
-                  <p className="font-semibold text-white text-sm hover:text-green-400 transition-colors">{emp.name}</p>
-                  <p className="text-xs text-gray-400">{emp.email}</p>
-                  <div className="flex gap-2 mt-1">
-                    <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">{emp.unit}</span>
-                    <span className="text-xs bg-green-900/50 text-green-400 px-2 py-0.5 rounded-full">Vendedor</span>
+                  <p className="font-semibold text-white text-sm">{emp.name}</p>
+                  <p className="text-xs text-gray-400 truncate">{emp.email}</p>
+                  <div className="flex gap-2 mt-2 items-center">
+                    <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full flex-1">{emp.unit}</span>
+                    <button
+                      onClick={() => openEdit(emp)}
+                      className="text-xs bg-blue-700 hover:bg-blue-600 text-white px-2 py-0.5 rounded-lg transition-colors"
+                    >Editar</button>
                   </div>
                 </div>
               ))}
@@ -603,96 +659,182 @@ export default function MapPage() {
             {/* área direita */}
             <div className="flex-1 overflow-y-auto p-6">
 
-              {/* relatório mensal */}
-              <div className="max-w-lg mb-8 bg-gray-900 border border-gray-700 rounded-2xl p-5">
-                <h2 className="text-base font-bold text-white mb-1">📊 Relatório Mensal</h2>
-                <p className="text-gray-400 text-sm mb-4">Exporta ponto completo do mês — todos os funcionários, por dia.</p>
-                <div className="flex gap-3">
-                  <input
-                    type="month"
-                    value={exportMonth}
-                    onChange={e => setExportMonth(e.target.value)}
-                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
-                  />
-                  <button
-                    onClick={exportMonthlyCSV}
-                    disabled={monthlyExportLoading}
-                    className="px-4 py-2 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-lg text-sm transition-colors whitespace-nowrap"
-                  >
-                    {monthlyExportLoading ? 'Exportando...' : '⬇️ Exportar CSV'}
-                  </button>
-                </div>
-              </div>
-
-              <h2 className="text-lg font-bold text-white mb-1">Novo Funcionário</h2>
-              <p className="text-gray-400 text-sm mb-5">Preencha os dados para cadastrar um novo acesso.</p>
-
-              <form onSubmit={submitForm} className="max-w-lg flex flex-col gap-4">
-                {formMsg && (
-                  <div className={`rounded-lg px-4 py-3 text-sm font-semibold ${
-                    formMsg.type==='ok' ? 'bg-green-900/40 text-green-400 border border-green-700' : 'bg-red-900/40 text-red-400 border border-red-700'
-                  }`}>
-                    {formMsg.text}
+              {editEmp ? (
+                /* ── EDITAR FUNCIONÁRIO ── */
+                <>
+                  <div className="flex items-center gap-3 mb-1">
+                    <button onClick={() => setEditEmp(null)} className="text-gray-400 hover:text-white text-sm">← Voltar</button>
+                    <h2 className="text-lg font-bold text-white">Editar: {editEmp.name}</h2>
                   </div>
-                )}
+                  <p className="text-gray-400 text-sm mb-5">Altere os dados e clique em Salvar.</p>
 
-                <div>
-                  <label className={label}>Nome completo *</label>
-                  <input required value={form.name} onChange={e=>setF('name',e.target.value)} placeholder="Ex: João Silva" className={input} />
-                </div>
+                  <form onSubmit={submitEdit} className="max-w-lg flex flex-col gap-4">
+                    {editMsg && (
+                      <div className={`rounded-lg px-4 py-3 text-sm font-semibold ${
+                        editMsg.type==='ok' ? 'bg-green-900/40 text-green-400 border border-green-700' : 'bg-red-900/40 text-red-400 border border-red-700'
+                      }`}>{editMsg.text}</div>
+                    )}
 
-                <div>
-                  <label className={label}>E-mail *</label>
-                  <input required type="email" value={form.email} onChange={e=>setF('email',e.target.value)} placeholder="joao@ampere.com" className={input} />
-                </div>
+                    <div>
+                      <label className={label}>Nome completo *</label>
+                      <input required value={editForm.name} onChange={e=>setEF('name',e.target.value)} className={input} />
+                    </div>
 
-                <div>
-                  <label className={label}>Senha inicial *</label>
-                  <input required type="password" minLength={6} value={form.password} onChange={e=>setF('password',e.target.value)} placeholder="Mínimo 6 caracteres" className={input} />
-                </div>
+                    <div>
+                      <label className={label}>E-mail</label>
+                      <input value={editForm.email} disabled className={`${input} opacity-50 cursor-not-allowed`} />
+                    </div>
 
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label className={label}>Função</label>
-                    <select value={form.role} onChange={e=>setF('role',e.target.value)} className={input}>
-                      <option value="EMPLOYEE">Vendedor</option>
-                      <option value="MANAGER">Gestor</option>
-                      <option value="ADMIN">Admin</option>
-                    </select>
+                    <div>
+                      <label className={label}>Nova senha (deixe em branco para manter)</label>
+                      <input type="password" minLength={6} value={editForm.password} onChange={e=>setEF('password',e.target.value)} placeholder="••••••" className={input} />
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <label className={label}>Função</label>
+                        <select value={editForm.role} onChange={e=>setEF('role',e.target.value)} className={input}>
+                          <option value="EMPLOYEE">Vendedor</option>
+                          <option value="MANAGER">Gestor</option>
+                          <option value="ADMIN">Admin</option>
+                        </select>
+                      </div>
+                      <div className="flex-1">
+                        <label className={label}>Unidade</label>
+                        <select value={editForm.unit} onChange={e=>setEF('unit',e.target.value)} className={input}>
+                          <option value="Natal">Natal</option>
+                          <option value="Caruaru">Caruaru</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={label}>Telefone</label>
+                      <input value={editForm.phone} onChange={e=>setEF('phone',e.target.value)} placeholder="(84) 99999-9999" className={input} />
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <label className={label}>CPF</label>
+                        <input value={editForm.cpf} onChange={e=>setEF('cpf',e.target.value)} placeholder="000.000.000-00" className={input} />
+                      </div>
+                      <div className="flex-1">
+                        <label className={label}>PIS</label>
+                        <input value={editForm.pis} onChange={e=>setEF('pis',e.target.value)} placeholder="000.00000.00-0" className={input} />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        type="submit"
+                        disabled={editLoading}
+                        className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold rounded-xl transition-colors text-sm"
+                      >
+                        {editLoading ? 'Salvando...' : '💾 Salvar alterações'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={inactivateEmp}
+                        className="px-4 py-3 bg-red-700 hover:bg-red-600 text-white font-bold rounded-xl transition-colors text-sm"
+                      >
+                        Inativar
+                      </button>
+                    </div>
+                  </form>
+                </>
+              ) : (
+                /* ── NOVO FUNCIONÁRIO ── */
+                <>
+                  {/* relatório mensal */}
+                  <div className="max-w-lg mb-8 bg-gray-900 border border-gray-700 rounded-2xl p-5">
+                    <h2 className="text-base font-bold text-white mb-1">📊 Relatório Mensal</h2>
+                    <p className="text-gray-400 text-sm mb-4">Exporta ponto completo do mês — todos os funcionários, por dia.</p>
+                    <div className="flex gap-3">
+                      <input
+                        type="month"
+                        value={exportMonth}
+                        onChange={e => setExportMonth(e.target.value)}
+                        className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
+                      />
+                      <button
+                        onClick={exportMonthlyCSV}
+                        disabled={monthlyExportLoading}
+                        className="px-4 py-2 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-lg text-sm transition-colors whitespace-nowrap"
+                      >
+                        {monthlyExportLoading ? 'Exportando...' : '⬇️ Exportar CSV'}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <label className={label}>Unidade</label>
-                    <select value={form.unit} onChange={e=>setF('unit',e.target.value)} className={input}>
-                      <option value="Natal">Natal</option>
-                      <option value="Caruaru">Caruaru</option>
-                    </select>
-                  </div>
-                </div>
 
-                <div>
-                  <label className={label}>Telefone</label>
-                  <input value={form.phone} onChange={e=>setF('phone',e.target.value)} placeholder="(84) 99999-9999" className={input} />
-                </div>
+                  <h2 className="text-lg font-bold text-white mb-1">Novo Funcionário</h2>
+                  <p className="text-gray-400 text-sm mb-5">Preencha os dados para cadastrar um novo acesso.</p>
 
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label className={label}>CPF</label>
-                    <input value={form.cpf} onChange={e=>setF('cpf',e.target.value)} placeholder="000.000.000-00" className={input} />
-                  </div>
-                  <div className="flex-1">
-                    <label className={label}>PIS</label>
-                    <input value={form.pis} onChange={e=>setF('pis',e.target.value)} placeholder="000.00000.00-0" className={input} />
-                  </div>
-                </div>
+                  <form onSubmit={submitForm} className="max-w-lg flex flex-col gap-4">
+                    {formMsg && (
+                      <div className={`rounded-lg px-4 py-3 text-sm font-semibold ${
+                        formMsg.type==='ok' ? 'bg-green-900/40 text-green-400 border border-green-700' : 'bg-red-900/40 text-red-400 border border-red-700'
+                      }`}>{formMsg.text}</div>
+                    )}
 
-                <button
-                  type="submit"
-                  disabled={formLoading}
-                  className="w-full py-3 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold rounded-xl transition-colors text-sm"
-                >
-                  {formLoading ? 'Cadastrando...' : '+ Cadastrar Funcionário'}
-                </button>
-              </form>
+                    <div>
+                      <label className={label}>Nome completo *</label>
+                      <input required value={form.name} onChange={e=>setF('name',e.target.value)} placeholder="Ex: João Silva" className={input} />
+                    </div>
+
+                    <div>
+                      <label className={label}>E-mail *</label>
+                      <input required type="email" value={form.email} onChange={e=>setF('email',e.target.value)} placeholder="joao@ampere.com" className={input} />
+                    </div>
+
+                    <div>
+                      <label className={label}>Senha inicial *</label>
+                      <input required type="password" minLength={6} value={form.password} onChange={e=>setF('password',e.target.value)} placeholder="Mínimo 6 caracteres" className={input} />
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <label className={label}>Função</label>
+                        <select value={form.role} onChange={e=>setF('role',e.target.value)} className={input}>
+                          <option value="EMPLOYEE">Vendedor</option>
+                          <option value="MANAGER">Gestor</option>
+                          <option value="ADMIN">Admin</option>
+                        </select>
+                      </div>
+                      <div className="flex-1">
+                        <label className={label}>Unidade</label>
+                        <select value={form.unit} onChange={e=>setF('unit',e.target.value)} className={input}>
+                          <option value="Natal">Natal</option>
+                          <option value="Caruaru">Caruaru</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={label}>Telefone</label>
+                      <input value={form.phone} onChange={e=>setF('phone',e.target.value)} placeholder="(84) 99999-9999" className={input} />
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <label className={label}>CPF</label>
+                        <input value={form.cpf} onChange={e=>setF('cpf',e.target.value)} placeholder="000.000.000-00" className={input} />
+                      </div>
+                      <div className="flex-1">
+                        <label className={label}>PIS</label>
+                        <input value={form.pis} onChange={e=>setF('pis',e.target.value)} placeholder="000.00000.00-0" className={input} />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={formLoading}
+                      className="w-full py-3 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold rounded-xl transition-colors text-sm"
+                    >
+                      {formLoading ? 'Cadastrando...' : '+ Cadastrar Funcionário'}
+                    </button>
+                  </form>
+                </>
+              )}
             </div>
           </div>
         )}
