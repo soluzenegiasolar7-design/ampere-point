@@ -257,6 +257,24 @@ export default function MapPage() {
       const extraMin    = Math.max(0, histSummary.totalMinutes - standardMin)
       const fmtMin = (m: number) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
 
+      // geocodifica pontos sem endereço (dados históricos) — sequencial para respeitar rate limit Nominatim
+      const addressMap: Record<string, string> = {}
+      for (const p of histPunches) {
+        if (p.address) { addressMap[p.id] = p.address; continue }
+        if (!p.latitude || !p.longitude) continue
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.latitude}&lon=${p.longitude}&accept-language=pt-BR`,
+            { headers: { 'User-Agent': 'AmperePoint/1.0' }, signal: AbortSignal.timeout(5000) }
+          )
+          if (res.ok) {
+            const json = await res.json() as { display_name?: string }
+            if (json.display_name) addressMap[p.id] = json.display_name
+          }
+        } catch { /* skip */ }
+        await new Promise(r => setTimeout(r, 1100)) // respeita 1 req/s do Nominatim
+      }
+
       // busca todas as fotos em paralelo (base64)
       const photoMap: Record<string, string> = {}
       await Promise.all(histPunches.map(async (p: any) => {
@@ -334,7 +352,7 @@ export default function MapPage() {
         return [
           `${dt.toLocaleDateString('pt-BR')} ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`,
           LABELS[p.type] ?? p.type,
-          p.address ?? '-',
+          addressMap[p.id] ?? '-',
           p.odometerKm != null ? `${p.odometerKm} km` : '-',
           '', // foto via didDrawCell
         ]

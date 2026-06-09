@@ -3,6 +3,20 @@ import { prisma } from '../../config/database'
 import { AppError } from '../../shared/errors/AppError'
 import { createLog } from '../gps-logs/gps-logs.service'
 
+async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=pt-BR`,
+      { headers: { 'User-Agent': 'AmperePoint/1.0' }, signal: AbortSignal.timeout(5000) }
+    )
+    if (!res.ok) return null
+    const json = await res.json() as { display_name?: string }
+    return json.display_name ?? null
+  } catch {
+    return null
+  }
+}
+
 const SEQUENCE: PunchType[] = ['ENTRADA', 'SAIDA_ALMOCO', 'RETORNO_ALMOCO', 'SAIDA']
 
 function todayRange() {
@@ -30,6 +44,11 @@ export async function punch(userId: string, data: {
 
   const { photoData, ...rest } = data
   const entry = await prisma.timeEntry.create({ data: { userId, ...rest } })
+
+  // Geocodificação reversa em background — não bloqueia a resposta
+  reverseGeocode(data.latitude, data.longitude).then(address => {
+    if (address) prisma.timeEntry.update({ where: { id: entry.id }, data: { address } }).catch(() => {})
+  }).catch(() => {})
 
   // Grava a localização do ponto no gpsLog para garantir que
   // a posição final seja incluída no cálculo de KM do dia
