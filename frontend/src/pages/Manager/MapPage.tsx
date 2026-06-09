@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useLocationStore } from '../../stores/location.store'
@@ -256,20 +256,10 @@ export default function MapPage() {
 
         {/* MAPA */}
         {tab === 'mapa' && (
-          <div className="flex h-full relative">
-            {/* toggle sidebar */}
-            <button
-              onClick={() => setSidebarOpen(o => !o)}
-              className="absolute z-[1000] top-2 left-2 bg-gray-900 border border-gray-700 text-gray-300 hover:text-white rounded-lg w-8 h-8 flex items-center justify-center shadow-lg transition-all"
-              style={sidebarOpen ? { left: '248px' } : { left: '8px' }}
-              title={sidebarOpen ? 'Ocultar lista' : 'Mostrar lista'}
-            >
-              {sidebarOpen ? '◀' : '▶'}
-            </button>
-
+          <div className="flex h-full">
             {/* sidebar */}
-            <div className={`${sidebarOpen ? 'w-64' : 'w-0'} bg-gray-900 border-r border-gray-800 overflow-hidden shrink-0 transition-all duration-200`}>
-              <div className="p-3 w-64">
+            <div className={`${sidebarOpen ? 'w-64' : 'w-0'} bg-gray-900 overflow-hidden shrink-0 transition-all duration-200`}>
+              <div className="p-3 w-64 h-full overflow-y-auto">
                 <button
                   onClick={exportCSV}
                   disabled={exportLoading}
@@ -320,10 +310,19 @@ export default function MapPage() {
               </div>
             </div>
 
+            {/* faixa toggle — fica entre sidebar e mapa, sem sobrepor nada */}
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              title={sidebarOpen ? 'Ocultar lista' : 'Mostrar lista'}
+              className="w-5 shrink-0 bg-gray-800 hover:bg-gray-700 border-x border-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition-colors text-xs"
+            >
+              {sidebarOpen ? '‹' : '›'}
+            </button>
+
             {/* mapa */}
             <div className="flex-1">
-              <MapContainer center={[-5.7945,-35.2110]} zoom={12} style={{height:'100%',width:'100%'}} zoomControl={false}>
-                <ZoomControl position="bottomright" />
+              <MapContainer center={[-5.7945,-35.2110]} zoom={12} style={{height:'100%',width:'100%'}}>
+
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='© OpenStreetMap' />
                 {employees.map(emp => {
                   const loc = getLoc(emp.id)
