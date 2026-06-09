@@ -9,7 +9,7 @@ const router = Router()
 // URL configurada no app: https://ampere-point-production.up.railway.app/api/gps-ext/{userId}
 // Body enviado pelo OwnTracks: { _type: "location", lat, lon, acc, vel, tst }
 router.post('/:userId', async (req: Request, res: Response) => {
-  const { userId } = req.params
+  const userId = req.params.userId as string
   const body = req.body
 
   // ignora eventos que não sejam localização
