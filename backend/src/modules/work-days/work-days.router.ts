@@ -168,4 +168,29 @@ router.patch('/today/odometer', upload.single('odometerPhoto'), async (req: Requ
   } catch (e) { next(e) }
 })
 
+// resumo KM de um funcionário em um período
+router.get('/summary/:userId', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const uid      = req.params.userId as string
+    const dateFrom = String(Array.isArray(req.query.dateFrom) ? req.query.dateFrom[0] : (req.query.dateFrom || ''))
+    const dateTo   = String(Array.isArray(req.query.dateTo)   ? req.query.dateTo[0]   : (req.query.dateTo   || ''))
+    if (!dateFrom || !dateTo) { res.status(400).json({ error: 'dateFrom e dateTo obrigatórios' }); return }
+
+    const start = new Date(dateFrom); start.setHours(0, 0, 0, 0)
+    const end   = new Date(dateTo);   end.setHours(23, 59, 59, 999)
+
+    const days = await prisma.workDay.findMany({
+      where: { userId: uid, date: { gte: start, lte: end } },
+      select: { totalKm: true, odometerKm: true, totalMinutes: true, date: true },
+    })
+
+    const gpsKm      = days.reduce((s, d) => s + (d.totalKm ?? 0), 0)
+    const odometerKm = days.reduce((s, d) => s + (d.odometerKm ?? 0), 0)
+    const totalMin   = days.reduce((s, d) => s + (d.totalMinutes ?? 0), 0)
+    const workDays   = days.length
+
+    res.json({ gpsKm, odometerKm, totalMinutes: totalMin, workDays })
+  } catch (e) { next(e) }
+})
+
 export default router

@@ -83,11 +83,15 @@ export default function MapPage() {
   const [punchDate, setPunchDate] = useState(new Date().toISOString().slice(0, 10))
   const [punchesLoading, setPunchesLoading] = useState(false)
 
-  // histórico — trilha + pontos de um funcionário em uma data
+  // histórico — trilha + pontos de um funcionário em um intervalo
   const [histEmployee, setHistEmployee] = useState<string>('')
-  const [histDate, setHistDate] = useState(new Date().toISOString().slice(0, 10))
+  const [histDateFrom, setHistDateFrom] = useState(() => {
+    const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10)
+  })
+  const [histDateTo, setHistDateTo] = useState(new Date().toISOString().slice(0, 10))
   const [histPunches, setHistPunches] = useState<any[]>([])
   const [histTrail, setHistTrail] = useState<[number, number][] | null>(null)
+  const [histSummary, setHistSummary] = useState<{gpsKm:number;odometerKm:number;totalMinutes:number;workDays:number}|null>(null)
   const [histLoading, setHistLoading] = useState(false)
   const [histZoomedPhoto, setHistZoomedPhoto] = useState<string | null>(null)
 
@@ -122,16 +126,20 @@ export default function MapPage() {
   }
 
   const loadHistorico = async () => {
-    if (!histEmployee || !histDate) return
+    if (!histEmployee || !histDateFrom || !histDateTo) return
     setHistLoading(true)
     setHistTrail(null)
     setHistPunches([])
+    setHistSummary(null)
     try {
-      const [pRes, tRes] = await Promise.all([
-        api.get(`/api/time-entries/user/${histEmployee}?date=${histDate}`),
-        api.get(`/api/gps-logs/trail/${histEmployee}?date=${histDate}`),
+      const params = `dateFrom=${histDateFrom}&dateTo=${histDateTo}`
+      const [pRes, tRes, sRes] = await Promise.all([
+        api.get(`/api/time-entries/user/${histEmployee}?${params}`),
+        api.get(`/api/gps-logs/trail/${histEmployee}?${params}`),
+        api.get(`/api/work-days/summary/${histEmployee}?${params}`),
       ])
-      setHistPunches(pRes.data.map((e: any) => ({ ...e, photoData: undefined, odometerPhotoData: undefined })))
+      setHistPunches(pRes.data)
+      setHistSummary(sRes.data)
       const raw: [number, number][] = tRes.data.map((p: any) => [p.latitude, p.longitude])
       const snapped = raw.length >= 2 ? await snapToRoads(raw) : raw
       setHistTrail(snapped.length ? snapped : null)
@@ -615,13 +623,29 @@ export default function MapPage() {
                       <option key={emp.id} value={emp.id}>{emp.name} — {emp.unit}</option>
                     ))}
                   </select>
-                  <input
-                    type="date"
-                    value={histDate}
-                    max={new Date().toISOString().slice(0, 10)}
-                    onChange={e => setHistDate(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
-                  />
+                  <div className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <p className="text-xs text-gray-500 mb-1">De</p>
+                      <input
+                        type="date"
+                        value={histDateFrom}
+                        max={histDateTo}
+                        onChange={e => setHistDateFrom(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs text-gray-500 mb-1">Até</p>
+                      <input
+                        type="date"
+                        value={histDateTo}
+                        min={histDateFrom}
+                        max={new Date().toISOString().slice(0, 10)}
+                        onChange={e => setHistDateTo(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500"
+                      />
+                    </div>
+                  </div>
                   <button
                     onClick={loadHistorico}
                     disabled={!histEmployee || histLoading}
@@ -630,6 +654,32 @@ export default function MapPage() {
                     {histLoading ? 'Carregando…' : '🔍 Buscar'}
                   </button>
                 </div>
+
+                {/* card resumo KM */}
+                {histSummary && (
+                  <div className="mt-3 bg-gray-800 border border-gray-700 rounded-xl p-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-gray-700/50 rounded-lg p-2 text-center">
+                      <p className="text-gray-400 mb-0.5">📍 KM por GPS</p>
+                      <p className="text-blue-400 font-bold text-base">{histSummary.gpsKm.toFixed(1)}</p>
+                    </div>
+                    <div className="bg-gray-700/50 rounded-lg p-2 text-center">
+                      <p className="text-gray-400 mb-0.5">🚗 KM Tacômetro</p>
+                      <p className="text-orange-400 font-bold text-base">
+                        {histSummary.odometerKm > 0 ? histSummary.odometerKm.toFixed(1) : '—'}
+                      </p>
+                    </div>
+                    <div className="bg-gray-700/50 rounded-lg p-2 text-center">
+                      <p className="text-gray-400 mb-0.5">⏱ Horas totais</p>
+                      <p className="text-white font-bold text-base">
+                        {Math.floor(histSummary.totalMinutes/60)}h{String(histSummary.totalMinutes%60).padStart(2,'0')}
+                      </p>
+                    </div>
+                    <div className="bg-gray-700/50 rounded-lg p-2 text-center">
+                      <p className="text-gray-400 mb-0.5">📅 Dias trab.</p>
+                      <p className="text-white font-bold text-base">{histSummary.workDays}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* pontos do dia */}
@@ -644,48 +694,56 @@ export default function MapPage() {
                   </div>
                 )}
 
-                {!histLoading && histPunches.length === 0 && histEmployee && (
-                  <p className="text-gray-500 text-sm text-center py-8">Nenhum ponto nesta data.</p>
+                {!histLoading && histPunches.length === 0 && histEmployee && histSummary && (
+                  <p className="text-gray-500 text-sm text-center py-8">Nenhum ponto neste período.</p>
                 )}
-                {!histLoading && !histEmployee && (
-                  <p className="text-gray-600 text-sm text-center py-8">Selecione um funcionário e uma data.</p>
+                {!histLoading && !histSummary && (
+                  <p className="text-gray-600 text-sm text-center py-8">Selecione um funcionário e o período.</p>
                 )}
 
-                {histPunches.map((punch: any) => (
-                  <div key={punch.id} className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden mb-3">
-                    {punch.photoUrl && (
-                      <div
-                        className="cursor-zoom-in relative"
-                        onClick={() => setHistZoomedPhoto(`${API_URL}${punch.photoUrl}`)}
-                      >
-                        <img
-                          src={`${API_URL}${punch.photoUrl}`}
-                          alt="Selfie"
-                          className="w-full object-cover"
-                          style={{ height: '140px' }}
-                          onError={e => { (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="h-28 flex items-center justify-center text-gray-600 text-xs">📷 Foto indisponível</div>' }}
-                        />
-                        <div className="absolute bottom-1 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">🔍</div>
-                      </div>
-                    )}
-                    <div className="p-3">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs font-bold text-gray-200">{PUNCH_LABELS[punch.type]}</span>
-                        <span className="text-xs text-gray-500">{fmt(punch.timestamp)}</span>
-                      </div>
-                      {punch.odometerKm != null && (
-                        <p className="text-xs text-blue-400 mb-1">🚗 Tacômetro: {punch.odometerKm} km</p>
-                      )}
-                      <a
-                        href={`https://www.google.com/maps?q=${punch.latitude},${punch.longitude}`}
-                        target="_blank" rel="noreferrer"
-                        className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
-                      >
-                        📍 Ver no Maps
-                      </a>
+                {(() => {
+                  const byDay: Record<string, any[]> = {}
+                  histPunches.forEach(p => {
+                    const day = new Date(p.timestamp).toLocaleDateString('pt-BR')
+                    if (!byDay[day]) byDay[day] = []
+                    byDay[day].push(p)
+                  })
+                  return Object.entries(byDay).map(([day, punches]) => (
+                    <div key={day} className="mb-4">
+                      <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-2">{day}</p>
+                      {punches.map((punch: any) => (
+                        <div key={punch.id} className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden mb-2">
+                          {punch.photoUrl && (
+                            <div className="cursor-zoom-in relative" onClick={() => setHistZoomedPhoto(`${API_URL}${punch.photoUrl}`)}>
+                              <img
+                                src={`${API_URL}${punch.photoUrl}`}
+                                alt="Selfie"
+                                className="w-full object-cover"
+                                style={{ height: '120px' }}
+                                onError={e => { (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="h-20 flex items-center justify-center text-gray-600 text-xs">📷 Indisponível</div>' }}
+                              />
+                              <div className="absolute bottom-1 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">🔍</div>
+                            </div>
+                          )}
+                          <div className="p-2">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-xs font-bold text-gray-200">{PUNCH_LABELS[punch.type]}</span>
+                              <span className="text-xs text-gray-500">{fmt(punch.timestamp)}</span>
+                            </div>
+                            {punch.odometerKm != null && (
+                              <p className="text-xs text-orange-400 mb-1">🚗 {punch.odometerKm} km</p>
+                            )}
+                            <a href={`https://www.google.com/maps?q=${punch.latitude},${punch.longitude}`}
+                              target="_blank" rel="noreferrer"
+                              className="text-xs text-blue-400 hover:text-blue-300">
+                              📍 Ver no Maps
+                            </a>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))}
+                  ))
+                })()}
               </div>
             </div>
 

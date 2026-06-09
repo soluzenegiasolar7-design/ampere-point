@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { punch, listTodayEntries, listAllTodayEntries, listAllEntriesByDate, listEntriesByDate, nextPunchType, recalcTotalMinutes } from './time-entries.service'
+import { punch, listTodayEntries, listAllTodayEntries, listAllEntriesByDate, listEntriesByDate, listEntriesByRange, nextPunchType, recalcTotalMinutes } from './time-entries.service'
 import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
 import multer from 'multer'
 import { getIo } from '../../socket/io'
@@ -137,13 +137,14 @@ router.get('/all', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Re
 
 router.get('/user/:userId', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const date = String(Array.isArray(req.query.date) ? req.query.date[0] : (req.query.date || ''))
-    const entries = await listEntriesByDate(req.params.userId as string, date || new Date().toISOString())
-    res.json(entries.map((e: any) => ({
-      ...e,
-      photoData: undefined,
-      odometerPhotoData: undefined,
-    })))
+    const uid      = req.params.userId as string
+    const dateFrom = String(Array.isArray(req.query.dateFrom) ? req.query.dateFrom[0] : (req.query.dateFrom || ''))
+    const dateTo   = String(Array.isArray(req.query.dateTo)   ? req.query.dateTo[0]   : (req.query.dateTo   || ''))
+    const date     = String(Array.isArray(req.query.date)     ? req.query.date[0]     : (req.query.date     || ''))
+    const entries = dateFrom && dateTo
+      ? await listEntriesByRange(uid, dateFrom, dateTo)
+      : await listEntriesByDate(uid, date || new Date().toISOString())
+    res.json(entries.map((e: any) => ({ ...e, photoData: undefined, odometerPhotoData: undefined })))
   } catch (e) { next(e) }
 })
 

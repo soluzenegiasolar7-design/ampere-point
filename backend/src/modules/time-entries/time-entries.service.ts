@@ -68,6 +68,16 @@ export async function listEntriesByDate(userId: string, date: string) {
   })
 }
 
+export async function listEntriesByRange(userId: string, dateFrom: string, dateTo: string) {
+  const start = new Date(dateFrom); start.setHours(0, 0, 0, 0)
+  const end   = new Date(dateTo);   end.setHours(23, 59, 59, 999)
+  return prisma.timeEntry.findMany({
+    where: { userId, timestamp: { gte: start, lte: end } },
+    orderBy: { timestamp: 'asc' },
+    include: { user: { select: { name: true, unit: true } } },
+  })
+}
+
 export async function listAllTodayEntries() {
   const { start, end } = todayRange()
   return prisma.timeEntry.findMany({

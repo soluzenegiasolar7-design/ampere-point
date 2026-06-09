@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { getTrailByDate, getTodayTrail } from './gps-logs.service'
+import { getTrailByDate, getTrailByRange, getTodayTrail } from './gps-logs.service'
 import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
 import { prisma } from '../../config/database'
 
@@ -45,11 +45,16 @@ router.get('/trail/today', async (req: Request, res: Response, next: NextFunctio
 
 router.get('/trail/:userId', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const dateStr = String(Array.isArray(req.query.date) ? req.query.date[0] : (req.query.date || ''))
-    if (dateStr) {
-      res.json(await getTrailByDate(req.params.userId as string, dateStr))
+    const uid      = req.params.userId as string
+    const dateFrom = String(Array.isArray(req.query.dateFrom) ? req.query.dateFrom[0] : (req.query.dateFrom || ''))
+    const dateTo   = String(Array.isArray(req.query.dateTo)   ? req.query.dateTo[0]   : (req.query.dateTo   || ''))
+    const dateStr  = String(Array.isArray(req.query.date)     ? req.query.date[0]     : (req.query.date     || ''))
+    if (dateFrom && dateTo) {
+      res.json(await getTrailByRange(uid, dateFrom, dateTo))
+    } else if (dateStr) {
+      res.json(await getTrailByDate(uid, dateStr))
     } else {
-      res.json(await getTodayTrail(req.params.userId as string))
+      res.json(await getTodayTrail(uid))
     }
   } catch (e) { next(e) }
 })

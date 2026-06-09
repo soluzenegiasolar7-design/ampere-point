@@ -64,3 +64,13 @@ export async function getTrailByDate(userId: string, dateStr: string) {
     select: { latitude: true, longitude: true, timestamp: true, speed: true },
   })
 }
+
+export async function getTrailByRange(userId: string, dateFrom: string, dateTo: string) {
+  const start = new Date(dateFrom); start.setHours(0, 0, 0, 0)
+  const end   = new Date(dateTo);   end.setHours(23, 59, 59, 999)
+  return prisma.gpsLog.findMany({
+    where: { userId, timestamp: { gte: start, lte: end } },
+    orderBy: { timestamp: 'asc' },
+    select: { latitude: true, longitude: true, timestamp: true, speed: true },
+  })
+}
