@@ -98,10 +98,42 @@ export default function MapPage() {
   const getLoc    = (uid: string) => userLocations[uid]
   const fmt       = (ts: string)  => new Date(ts).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })
 
+  const snapToRoads = async (points: [number, number][]): Promise<[number, number][]> => {
+    // Limita a 100 pontos por request (limite OSRM)
+    // Se tiver mais, amostra os pontos distribuídos
+    const MAX = 100
+    const sampled = points.length > MAX
+      ? Array.from({ length: MAX }, (_, i) => points[Math.round(i * (points.length - 1) / (MAX - 1))])
+      : points
+
+    // OSRM espera longitude,latitude (inverso do Leaflet)
+    const coords = sampled.map(([lat, lng]) => `${lng},${lat}`).join(';')
+    const radiuses = sampled.map(() => '25').join(';') // tolerância de 25m por ponto
+
+    try {
+      const res = await fetch(
+        `https://router.project-osrm.org/match/v1/driving/${coords}?overview=full&geometries=geojson&radiuses=${radiuses}`,
+        { signal: AbortSignal.timeout(8000) }
+      )
+      if (!res.ok) throw new Error('OSRM error')
+      const json = await res.json()
+      if (json.code !== 'Ok' || !json.matchings?.length) return points
+      // OSRM retorna [lng, lat] — converte para [lat, lng] do Leaflet
+      return json.matchings.flatMap((m: any) =>
+        m.geometry.coordinates.map(([lng, lat]: [number, number]) => [lat, lng] as [number, number])
+      )
+    } catch {
+      // Se OSRM falhar, usa os pontos brutos
+      return points
+    }
+  }
+
   const loadTrail = async (uid: string) => {
     if (selectedUser === uid) { setSelectedTrail(null); setSelectedUser(null); return }
     const { data } = await api.get(`/api/gps-logs/trail/${uid}`)
-    setSelectedTrail(data.map((p: any) => [p.latitude, p.longitude]))
+    const raw: [number, number][] = data.map((p: any) => [p.latitude, p.longitude])
+    const snapped = raw.length >= 2 ? await snapToRoads(raw) : raw
+    setSelectedTrail(snapped)
     setSelectedUser(uid)
   }
 

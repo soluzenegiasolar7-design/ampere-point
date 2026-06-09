@@ -214,6 +214,17 @@ export default function PunchPage() {
           </div>
         )}
 
+        {/* Aviso de rastreamento ativo */}
+        {isWorking && (
+          <div className="bg-blue-900/20 border border-blue-700/50 rounded-xl px-4 py-2 flex items-center gap-3">
+            <span className="text-blue-400 text-lg animate-pulse">📡</span>
+            <div>
+              <p className="text-blue-300 text-xs font-semibold">GPS ativo — mantenha o app aberto</p>
+              <p className="text-blue-500 text-xs">A tela permanece ligada durante o rastreamento</p>
+            </div>
+          </div>
+        )}
+
         {/* Resumo GPS do dia */}
         {workDay && (
           <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4 flex justify-around">

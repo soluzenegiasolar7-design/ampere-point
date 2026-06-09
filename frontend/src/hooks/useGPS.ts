@@ -33,19 +33,56 @@ async function flushQueue() {
 }
 
 export function useGPS(active: boolean) {
-  const watchRef = useRef<number | null>(null)
+  const watchRef    = useRef<number | null>(null)
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
 
+  // Sincroniza fila offline ao recuperar conexão
   useEffect(() => {
-    // quando a conexão volta, sincroniza a fila
     const onOnline = () => flushQueue()
     window.addEventListener('online', onOnline)
-
-    // tenta sincronizar ao montar (pode já estar online com fila pendente)
     flushQueue()
-
     return () => window.removeEventListener('online', onOnline)
   }, [])
 
+  // Wake Lock — mantém a tela ligada enquanto GPS está ativo
+  // Sem wake lock a tela dorme e o watchPosition para no iOS/Android
+  useEffect(() => {
+    if (!active) {
+      wakeLockRef.current?.release().catch(() => {})
+      wakeLockRef.current = null
+      return
+    }
+
+    async function acquireWakeLock() {
+      if (!('wakeLock' in navigator)) return
+      try {
+        const lock = await (navigator as any).wakeLock.request('screen')
+        wakeLockRef.current = lock
+        // Se a tela foi bloqueada externamente (ex: ligação), reaquire ao voltar
+        lock.addEventListener('release', () => {
+          if (active) acquireWakeLock()
+        })
+      } catch {
+        // Alguns browsers/dispositivos não suportam — ignora
+      }
+    }
+
+    acquireWakeLock()
+
+    // Reaquire o wake lock quando a aba volta ao foco (ex: usuário muda de app e volta)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && active) acquireWakeLock()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      wakeLockRef.current?.release().catch(() => {})
+      wakeLockRef.current = null
+    }
+  }, [active])
+
+  // GPS watch — maximumAge: 0 = sempre posição fresca, sem cache
   useEffect(() => {
     if (!active || !navigator.geolocation) return
 
@@ -73,12 +110,11 @@ export function useGPS(active: boolean) {
             accuracy:  point.accuracy,
             speed:     point.speed,
           })
-          // flush imediato se acumulou algo offline antes
           flushQueue()
         }
       },
       (err) => console.warn('GPS error:', err),
-      { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
     )
 
     return () => {
