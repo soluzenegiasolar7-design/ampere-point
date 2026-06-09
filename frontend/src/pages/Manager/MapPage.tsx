@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useLocationStore } from '../../stores/location.store'
@@ -322,7 +322,8 @@ export default function MapPage() {
 
             {/* mapa */}
             <div className="flex-1">
-              <MapContainer center={[-5.7945,-35.2110]} zoom={12} style={{height:'100%',width:'100%'}}>
+              <MapContainer center={[-5.7945,-35.2110]} zoom={12} style={{height:'100%',width:'100%'}} zoomControl={false}>
+                <ZoomControl position="bottomright" />
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='© OpenStreetMap' />
                 {employees.map(emp => {
                   const loc = getLoc(emp.id)
