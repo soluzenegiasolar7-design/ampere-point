@@ -34,7 +34,9 @@ const PUNCH_LABELS: Record<string, string> = {
   SAIDA: '🔴 Saída',
 }
 
-type Tab = 'mapa' | 'funcionarios' | 'pontos'
+type Tab = 'mapa' | 'funcionarios' | 'pontos' | 'rastreamento'
+
+const API_BASE = import.meta.env.VITE_API_URL || 'https://ampere-point-production.up.railway.app'
 
 export default function MapPage() {
   const { user, logout } = useAuthStore()
@@ -214,7 +216,7 @@ export default function MapPage() {
 
       {/* ── ABAS ── */}
       <div className="bg-gray-900 border-b border-gray-800 flex shrink-0">
-        {([['mapa','🗺️ Mapa'],['funcionarios','👤 Funcionários'],['pontos','📋 Pontos & Fotos']] as [Tab,string][]).map(([t,label]) => (
+        {([['mapa','🗺️ Mapa'],['funcionarios','👤 Funcionários'],['pontos','📋 Pontos & Fotos'],['rastreamento','📡 Rastreamento']] as [Tab,string][]).map(([t,label]) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -502,6 +504,81 @@ export default function MapPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* RASTREAMENTO — OwnTracks */}
+        {tab === 'rastreamento' && (
+          <div className="h-full overflow-y-auto p-6">
+            <div className="max-w-2xl mx-auto">
+              <h2 className="text-lg font-bold text-white mb-1">📡 Rastreamento em Segundo Plano</h2>
+              <p className="text-gray-400 text-sm mb-6">
+                Configure o <strong className="text-white">OwnTracks</strong> no celular de cada funcionário para rastrear a localização com a tela desligada.
+              </p>
+
+              {/* Passo a passo */}
+              <div className="bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-6">
+                <h3 className="font-bold text-white mb-4">Como configurar (uma vez por celular)</h3>
+                <ol className="space-y-4 text-sm text-gray-300">
+                  <li className="flex gap-3">
+                    <span className="bg-blue-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">1</span>
+                    <span>Baixe o <strong className="text-white">OwnTracks</strong> na App Store (iOS) ou Play Store (Android) — é gratuito</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="bg-blue-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">2</span>
+                    <span>Abra o app → toque no ícone <strong className="text-white">(i)</strong> no canto superior esquerdo → <strong className="text-white">Configurações</strong></span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="bg-blue-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">3</span>
+                    <span>Em <strong className="text-white">Mode</strong>, selecione <strong className="text-white">HTTP</strong></span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="bg-blue-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">4</span>
+                    <span>Em <strong className="text-white">URL</strong>, cole o link do funcionário (veja abaixo)</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="bg-blue-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">5</span>
+                    <span>No iOS: vá em Ajustes → OwnTracks → Localização → <strong className="text-white">Sempre</strong></span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="bg-blue-600 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">6</span>
+                    <span>No app, selecione o modo <strong className="text-white">Move</strong> (atualiza com frequência) e deixe rodando</span>
+                  </li>
+                </ol>
+              </div>
+
+              {/* Links por funcionário */}
+              <h3 className="font-bold text-white mb-3">Links por funcionário</h3>
+              <div className="space-y-3">
+                {employees.map(emp => {
+                  const url = `${API_BASE}/api/gps-ext/${emp.id}`
+                  return (
+                    <div key={emp.id} className="bg-gray-900 border border-gray-700 rounded-xl p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-semibold text-white text-sm">{emp.name}</p>
+                          <p className="text-xs text-gray-500">{emp.unit}</p>
+                        </div>
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(url) }}
+                          className="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          📋 Copiar URL
+                        </button>
+                      </div>
+                      <code className="block text-xs text-green-400 bg-gray-800 rounded-lg px-3 py-2 break-all">
+                        {url}
+                      </code>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="mt-6 bg-yellow-900/20 border border-yellow-700/50 rounded-xl p-4 text-sm text-yellow-300">
+                <p className="font-semibold mb-1">⚡ Dica de bateria</p>
+                <p className="text-yellow-400 text-xs">No OwnTracks, use o modo <strong>Significant</strong> para economizar bateria (atualiza apenas quando há deslocamento significativo) ou <strong>Move</strong> para rastreamento mais frequente.</p>
+              </div>
             </div>
           </div>
         )}

@@ -9,6 +9,7 @@ import usersRouter from './modules/users/users.router'
 import timeEntriesRouter from './modules/time-entries/time-entries.router'
 import gpsLogsRouter from './modules/gps-logs/gps-logs.router'
 import workDaysRouter from './modules/work-days/work-days.router'
+import gpsExtRouter from './modules/gps-ext/gps-ext.router'
 
 const app = express()
 
@@ -22,6 +23,7 @@ app.use('/api/users', usersRouter)
 app.use('/api/time-entries', timeEntriesRouter)
 app.use('/api/gps-logs', gpsLogsRouter)
 app.use('/api/work-days', workDaysRouter)
+app.use('/api/gps-ext', gpsExtRouter)
 
 app.use(errorHandler)
 
