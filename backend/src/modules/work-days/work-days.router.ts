@@ -106,6 +106,20 @@ router.get('/export-monthly', requireRole('ADMIN', 'MANAGER'), async (req: Reque
   } catch (e) { next(e) }
 })
 
+router.get('/user/:userId', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.params.userId as string
+    const dateStr = String(req.query.date || new Date().toISOString().slice(0, 10))
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const dateOnly = new Date(y, m - 1, d, 0, 0, 0, 0)
+    const wd = await prisma.workDay.findUnique({
+      where: { userId_date: { userId, date: dateOnly } },
+      select: { id: true, date: true, totalKm: true, totalMinutes: true, status: true, odometerKm: true, odometerPhotoUrl: true },
+    })
+    res.json(wd ?? null)
+  } catch (e) { next(e) }
+})
+
 router.get('/today', requireRole('ADMIN', 'MANAGER'), async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const { dateKey: dateOnly } = brtTodayRange()

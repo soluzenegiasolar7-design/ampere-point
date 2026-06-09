@@ -110,7 +110,7 @@ export default function MapPage() {
   const [showInactive, setShowInactive] = useState(false)
   const [inactiveEmployees, setInactiveEmployees] = useState<any[]>([])
 
-  useSocket(user?.role)
+  const socket = useSocket(user?.role)
 
   const loadData = async () => {
     const [u, all, w, p] = await Promise.all([
@@ -177,6 +177,13 @@ export default function MapPage() {
   useEffect(() => {
     if (tab === 'pontos') loadPunchesByDate(punchDate)
   }, [tab, punchDate])
+
+  useEffect(() => {
+    if (!socket) return
+    const onPunchNew = () => loadData()
+    socket.on('punch:new', onPunchNew)
+    return () => { socket.off('punch:new', onPunchNew) }
+  }, [socket])
 
   const getWorkDay = (uid: string) => workDays.find((w: any) => w.userId === uid)
   const getLoc    = (uid: string) => userLocations[uid]

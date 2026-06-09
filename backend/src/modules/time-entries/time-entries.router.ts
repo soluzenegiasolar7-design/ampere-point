@@ -78,6 +78,7 @@ router.post('/', upload.single('photo'), async (req: Request, res: Response, nex
         accuracy:  data.accuracy,
         timestamp: new Date(),
       })
+      io.to('tracking:room').emit('punch:new', { userId, type: data.type })
     }
 
     res.status(201).json(entry)
