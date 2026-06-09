@@ -247,14 +247,15 @@ export default function MapPage() {
         role: editForm.role,
         unit: editForm.unit,
         phone: editForm.phone || undefined,
-        cpf: editForm.cpf || undefined,
-        pis: editForm.pis || undefined,
+        // cpf/pis só envia se mudou (campos @unique — reenviar o mesmo valor pode gerar conflito)
+        ...(editForm.cpf !== (editEmp.cpf ?? '') ? { cpf: editForm.cpf || null } : {}),
+        ...(editForm.pis !== (editEmp.pis ?? '') ? { pis: editForm.pis || null } : {}),
         ...(editForm.password ? { password: editForm.password } : {}),
       })
       setEditMsg({ type:'ok', text:'✅ Dados atualizados com sucesso!' })
       loadData()
     } catch (err: any) {
-      setEditMsg({ type:'err', text:`❌ ${err.response?.data?.message || 'Erro ao atualizar'}` })
+      setEditMsg({ type:'err', text:`❌ ${err.response?.data?.error || err.response?.data?.message || 'Erro ao atualizar'}` })
     } finally {
       setEditLoading(false)
     }
