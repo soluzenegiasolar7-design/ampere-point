@@ -466,7 +466,7 @@ export default function MapPage() {
 
       {/* ── HEADER ── */}
       <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex justify-between items-center shrink-0">
-        <span className="text-white font-bold text-lg">AmperePoint</span>
+        <span className="text-white font-bold text-lg">⚡ AmperePoint</span>
         <div className="flex gap-3 text-sm items-center">
           <span className="text-green-400">● {inField} em campo</span>
           <button onClick={logout} className="text-gray-400 hover:text-white">Sair</button>
