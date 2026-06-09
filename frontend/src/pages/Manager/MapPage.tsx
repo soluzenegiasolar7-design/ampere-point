@@ -481,7 +481,6 @@ export default function MapPage() {
                         <p className="text-xs text-slate-500 mb-1.5">{emp.unit}</p>
                         {wd && (
                           <div className="flex gap-3 text-xs">
-                            <span className="flex items-center gap-1 text-blue-400"><Navigation size={11} /> {wd.totalKm.toFixed(1)} km</span>
                             <span className="flex items-center gap-1 text-slate-400"><Clock size={11} /> {Math.floor(wd.totalMinutes/60)}h{wd.totalMinutes%60}m</span>
                           </div>
                         )}
