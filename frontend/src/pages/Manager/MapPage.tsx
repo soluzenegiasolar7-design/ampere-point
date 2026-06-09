@@ -257,18 +257,6 @@ export default function MapPage() {
       const extraMin    = Math.max(0, histSummary.totalMinutes - standardMin)
       const fmtMin = (m: number) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
 
-      // carrega logo
-      let logoB64 = ''
-      try {
-        const logoRes = await fetch('/ampere-point/logo.png')
-        const logoBlob = await logoRes.blob()
-        logoB64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve(reader.result as string)
-          reader.onerror = reject
-          reader.readAsDataURL(logoBlob)
-        })
-      } catch { /* sem logo */ }
 
       // geocodifica pontos sem endereço (dados históricos) — sequencial para respeitar rate limit Nominatim
       const addressMap: Record<string, string> = {}
@@ -313,23 +301,15 @@ export default function MapPage() {
         doc.setFillColor(255, 255, 255)
         doc.rect(0, 0, W, 62, 'F')
 
-        // logo à esquerda em proporção 1:1 (arquivo é 1080×1080)
-        const logoSize = 22
-        if (logoB64) {
-          doc.addImage(logoB64, 'PNG', 14, 4, logoSize, logoSize)
-        }
-
-        // nome e subtítulo ao lado da logo
-        const textX = logoB64 ? 14 + logoSize + 4 : 14
-        doc.setFontSize(13)
+        doc.setFontSize(15)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(40, 40, 40)
-        doc.text('Ampere Solucoes', textX, 13)
+        doc.text('Ampere Solucoes', W / 2, 12, { align: 'center' })
 
         doc.setFontSize(9)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(80, 80, 80)
-        doc.text('Extrato de Pontos', textX, 21)
+        doc.text('Extrato de Pontos', W / 2, 20, { align: 'center' })
 
         doc.setDrawColor(210, 210, 210)
         doc.setLineWidth(0.4)
@@ -486,7 +466,7 @@ export default function MapPage() {
 
       {/* ── HEADER ── */}
       <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex justify-between items-center shrink-0">
-        <img src="/ampere-point/logo.png" alt="Ampere Soluções" className="h-12 w-auto" />
+        <span className="text-white font-bold text-lg">AmperePoint</span>
         <div className="flex gap-3 text-sm items-center">
           <span className="text-green-400">● {inField} em campo</span>
           <button onClick={logout} className="text-gray-400 hover:text-white">Sair</button>
