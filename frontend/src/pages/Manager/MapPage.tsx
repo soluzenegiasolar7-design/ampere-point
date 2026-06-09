@@ -7,6 +7,8 @@ import { useSocket } from '../../hooks/useSocket'
 import { api } from '../../services/api'
 import { useAuthStore } from '../../stores/auth.store'
 import EmployeeDayModal from './EmployeeDayModal'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002'
 
@@ -252,6 +254,106 @@ export default function MapPage() {
     } finally {
       setFormLoading(false)
     }
+  }
+
+  const exportHistoricoPDF = () => {
+    if (!histSummary || !histEmployee) return
+    const emp = employees.find(e => e.id === histEmployee)
+    const empName = emp?.name ?? 'Funcionário'
+    const dateFromFmt = new Date(histDateFrom + 'T12:00:00').toLocaleDateString('pt-BR')
+    const dateToFmt   = new Date(histDateTo   + 'T12:00:00').toLocaleDateString('pt-BR')
+
+    // horas extras: padrão 8h/dia (480 min) por dia trabalhado
+    const standardMin = histSummary.workDays * 480
+    const extraMin    = Math.max(0, histSummary.totalMinutes - standardMin)
+    const fmtMin = (m: number) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
+
+    const doc = new jsPDF()
+
+    // cabeçalho
+    doc.setFontSize(18)
+    doc.setFont('helvetica', 'bold')
+    doc.text('AmperePoint — Relatório de Ponto', 14, 20)
+
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Funcionário: ${empName}`, 14, 30)
+    doc.text(`Unidade: ${emp?.unit ?? '—'}`, 14, 37)
+    doc.text(`Período: ${dateFromFmt} a ${dateToFmt}`, 14, 44)
+    doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 51)
+
+    // linha separadora
+    doc.setLineWidth(0.5)
+    doc.line(14, 55, 196, 55)
+
+    // card resumo
+    autoTable(doc, {
+      startY: 60,
+      head: [['KM por GPS', 'KM Tacômetro', 'Horas Trabalhadas', 'Dias Trabalhados', 'Horas Extras']],
+      body: [[
+        `${histSummary.gpsKm.toFixed(1)} km`,
+        histSummary.odometerKm > 0 ? `${histSummary.odometerKm.toFixed(1)} km` : '—',
+        fmtMin(histSummary.totalMinutes),
+        String(histSummary.workDays),
+        extraMin > 0 ? fmtMin(extraMin) : '—',
+      ]],
+      headStyles: { fillColor: [22, 163, 74], fontStyle: 'bold' },
+      bodyStyles: { halign: 'center' },
+      margin: { left: 14, right: 14 },
+    })
+
+    // tabela de pontos
+    const tableY = (doc as any).lastAutoTable.finalY + 10
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Registros de Ponto', 14, tableY)
+
+    const punchRows = histPunches.map((p: any) => {
+      const dt = new Date(p.timestamp)
+      return [
+        dt.toLocaleDateString('pt-BR'),
+        PUNCH_LABELS[p.type] ?? p.type,
+        dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        p.odometerKm != null ? `${p.odometerKm} km` : '—',
+        p.address ?? '—',
+      ]
+    })
+
+    autoTable(doc, {
+      startY: tableY + 5,
+      head: [['Data', 'Tipo', 'Hora', 'Tacômetro', 'Endereço']],
+      body: punchRows,
+      headStyles: { fillColor: [30, 30, 30], textColor: [255, 255, 255] },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      columnStyles: { 4: { cellWidth: 70, fontSize: 8 } },
+      margin: { left: 14, right: 14 },
+    })
+
+    // assinaturas
+    const sigY = (doc as any).lastAutoTable.finalY + 20
+    // garante que cabe na página, senão adiciona nova
+    const pageH = doc.internal.pageSize.height
+    const finalY = sigY + 40 > pageH ? pageH - 55 : sigY
+
+    if (sigY + 40 > pageH) doc.addPage()
+
+    const usedY = sigY + 40 > pageH ? 20 : sigY
+
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+
+    // assinatura funcionário
+    doc.line(14, usedY + 25, 90, usedY + 25)
+    doc.text(`${empName}`, 14, usedY + 31)
+    doc.text('Assinatura do Funcionário', 14, usedY + 37)
+
+    // assinatura gestor
+    doc.line(120, usedY + 25, 196, usedY + 25)
+    doc.text('Gestor Responsável', 120, usedY + 31)
+    doc.text('Assinatura do Gestor', 120, usedY + 37)
+
+    doc.save(`ponto-${empName.replace(/\s+/g, '-')}-${histDateFrom}-${histDateTo}.pdf`)
+    void finalY
   }
 
   const inField = employees.filter(e => getWorkDay(e.id)?.status === 'EM_SERVICO').length
@@ -679,6 +781,15 @@ export default function MapPage() {
                       <p className="text-white font-bold text-base">{histSummary.workDays}</p>
                     </div>
                   </div>
+                )}
+
+                {histSummary && (
+                  <button
+                    onClick={exportHistoricoPDF}
+                    className="mt-3 w-full py-2 bg-blue-700 hover:bg-blue-600 text-white font-bold rounded-lg text-sm transition-colors"
+                  >
+                    📄 Exportar PDF
+                  </button>
                 )}
               </div>
 
