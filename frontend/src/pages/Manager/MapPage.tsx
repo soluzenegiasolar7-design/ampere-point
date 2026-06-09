@@ -410,13 +410,6 @@ export default function MapPage() {
             {/* sidebar */}
             <div className={`${sidebarOpen ? 'w-64' : 'w-0'} bg-gray-900 overflow-hidden shrink-0 transition-all duration-200`}>
               <div className="p-3 w-64 h-full overflow-y-auto">
-                <button
-                  onClick={exportCSV}
-                  disabled={exportLoading}
-                  className="w-full mb-3 py-2 text-xs bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
-                >
-                  {exportLoading ? 'Exportando...' : '⬇️ Exportar CSV'}
-                </button>
                 <p className="text-gray-400 text-xs uppercase tracking-wider font-semibold mb-3">Funcionários</p>
                 {employees.map(emp => {
                   const wd = getWorkDay(emp.id)
