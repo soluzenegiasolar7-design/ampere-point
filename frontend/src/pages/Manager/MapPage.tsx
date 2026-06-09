@@ -257,6 +257,19 @@ export default function MapPage() {
       const extraMin    = Math.max(0, histSummary.totalMinutes - standardMin)
       const fmtMin = (m: number) => `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`
 
+      // carrega logo
+      let logoB64 = ''
+      try {
+        const logoRes = await fetch('/ampere-point/logo.png')
+        const logoBlob = await logoRes.blob()
+        logoB64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(logoBlob)
+        })
+      } catch { /* sem logo */ }
+
       // geocodifica pontos sem endereço (dados históricos) — sequencial para respeitar rate limit Nominatim
       const addressMap: Record<string, string> = {}
       for (const p of histPunches) {
@@ -298,45 +311,55 @@ export default function MapPage() {
       // ── cabeçalho repetido em cada página ──────────────────────────────
       const drawHeader = () => {
         doc.setFillColor(255, 255, 255)
-        doc.rect(0, 0, W, 58, 'F')
+        doc.rect(0, 0, W, 62, 'F')
 
-        doc.setFontSize(15)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(40, 40, 40)
-        doc.text('AmperePoint', W / 2, 14, { align: 'center' })
+        if (logoB64) {
+          // logo centralizada: largura 38mm, proporção quadrada original → ajusta altura
+          const logoW = 38, logoH = 19
+          doc.addImage(logoB64, 'PNG', (W - logoW) / 2, 5, logoW, logoH)
+        } else {
+          doc.setFontSize(15)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(40, 40, 40)
+          doc.text('Ampere Solucoes', W / 2, 14, { align: 'center' })
+        }
 
         doc.setFontSize(10)
         doc.setFont('helvetica', 'normal')
-        doc.text('Extrato de Pontos', W / 2, 21, { align: 'center' })
+        doc.setTextColor(80, 80, 80)
+        doc.text('Extrato de Pontos', W / 2, 27, { align: 'center' })
 
         doc.setDrawColor(210, 210, 210)
+        doc.setDrawColor(210, 210, 210)
         doc.setLineWidth(0.4)
-        doc.line(14, 24, W - 14, 24)
+        doc.line(14, 30, W - 14, 30)
 
         doc.setFontSize(10)
         doc.setFont('helvetica', 'bold')
-        doc.text(empName.toUpperCase(), W / 2, 31, { align: 'center' })
+        doc.setTextColor(40, 40, 40)
+        doc.text(empName.toUpperCase(), W / 2, 37, { align: 'center' })
 
         // caixa de dados
         doc.setDrawColor(200, 200, 200)
         doc.setLineWidth(0.3)
-        doc.rect(14, 34, W - 28, 18)
+        doc.rect(14, 40, W - 28, 18)
 
         doc.setFontSize(8)
         doc.setFont('helvetica', 'bold')
-        doc.text('Colaborador:', 18, 40)
+        doc.setTextColor(40, 40, 40)
+        doc.text('Colaborador:', 18, 46)
         doc.setFont('helvetica', 'normal')
-        doc.text(empName, 18, 46)
+        doc.text(empName, 18, 52)
 
         doc.setFont('helvetica', 'bold')
-        doc.text('Unidade:', W / 2 - 10, 40)
+        doc.text('Unidade:', W / 2 - 10, 46)
         doc.setFont('helvetica', 'normal')
-        doc.text(empUnit, W / 2 - 10, 46)
+        doc.text(empUnit, W / 2 - 10, 52)
 
         doc.setFont('helvetica', 'bold')
-        doc.text('Periodo de referencia:', W - 76, 40)
+        doc.text('Periodo de referencia:', W - 76, 46)
         doc.setFont('helvetica', 'normal')
-        doc.text(`${dateFromFmt} a ${dateToFmt}`, W - 76, 46)
+        doc.text(`${dateFromFmt} a ${dateToFmt}`, W - 76, 52)
       }
 
       drawHeader()
@@ -462,7 +485,7 @@ export default function MapPage() {
 
       {/* ── HEADER ── */}
       <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex justify-between items-center shrink-0">
-        <span className="text-lg font-bold text-white">⚡ AmperePoint</span>
+        <img src="/ampere-point/logo.png" alt="Ampere Soluções" className="h-8 w-auto" />
         <div className="flex gap-3 text-sm items-center">
           <span className="text-green-400">● {inField} em campo</span>
           <button onClick={logout} className="text-gray-400 hover:text-white">Sair</button>

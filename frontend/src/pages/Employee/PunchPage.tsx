@@ -172,7 +172,7 @@ export default function PunchPage() {
       {/* Header */}
       <div className="bg-gray-900 border-b border-gray-800 px-4 py-3 flex justify-between items-center">
         <div>
-          <span className="text-lg font-bold">⚡ AmperePoint</span>
+          <img src="/ampere-point/logo.png" alt="Ampere Soluções" className="h-8 w-auto" />
           <p className="text-gray-400 text-xs">{user?.name} · {user?.unit}</p>
         </div>
         <button onClick={logout} className="text-gray-400 text-sm hover:text-white">Sair</button>
