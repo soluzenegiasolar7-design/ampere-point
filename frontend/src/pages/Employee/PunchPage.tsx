@@ -225,8 +225,8 @@ export default function PunchPage() {
           </div>
         )}
 
-        {/* Resumo GPS do dia */}
-        {workDay && (
+        {/* Resumo GPS do dia — só exibe se há pontos registrados hoje */}
+        {workDay && entries.length > 0 && (
           <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4 flex justify-around">
             <div className="text-center">
               <p className="text-blue-400 font-bold text-xl">{workDay.totalKm.toFixed(1)} km</p>
