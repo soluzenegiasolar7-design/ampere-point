@@ -861,16 +861,16 @@ export default function MapPage() {
               </h2>
               <p className="text-slate-500 text-sm mb-6">Configure o <strong className="text-slate-300">OwnTracks</strong> para rastrear com tela desligada.</p>
 
-              <Card className="p-5 mb-6">
-                <h3 className="font-semibold text-white mb-4">Configuração (uma vez por celular)</h3>
-                <ol className="space-y-4 text-sm text-slate-400">
+              {/* Passos comuns */}
+              <Card className="p-5 mb-4">
+                <h3 className="font-semibold text-white mb-4">Configuração inicial (iOS e Android)</h3>
+                <ol className="space-y-3 text-sm text-slate-400">
                   {[
                     'Baixe o <strong class="text-white">OwnTracks</strong> na App Store ou Play Store (gratuito)',
-                    'Abra o app → ícone <strong class="text-white">(i)</strong> → <strong class="text-white">Configurações</strong>',
+                    'Abra o app → toque no ícone <strong class="text-white">(i)</strong> no canto superior esquerdo → <strong class="text-white">Configurações</strong>',
                     'Em <strong class="text-white">Mode</strong>, selecione <strong class="text-white">HTTP</strong>',
-                    'Em <strong class="text-white">URL</strong>, cole o link do funcionário (abaixo)',
-                    'iOS: Ajustes → OwnTracks → Localização → <strong class="text-white">Sempre</strong>',
-                    'No app, selecione o modo <strong class="text-white">Move</strong> e deixe rodando',
+                    'Em <strong class="text-white">URL</strong>, cole o link do funcionário (seção abaixo)',
+                    'No app, selecione o modo <strong class="text-white">Move</strong> e deixe rodando em segundo plano',
                   ].map((step, i) => (
                     <li key={i} className="flex gap-3">
                       <span className="bg-amber-500 text-gray-950 text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
@@ -879,6 +879,51 @@ export default function MapPage() {
                   ))}
                 </ol>
               </Card>
+
+              {/* iOS vs Android */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <Card className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-lg"></span>
+                    <h3 className="font-semibold text-white text-sm">iPhone (iOS)</h3>
+                  </div>
+                  <ol className="space-y-2 text-xs text-slate-400">
+                    {[
+                      'Abra <strong class="text-white">Ajustes</strong> do iPhone',
+                      'Role até encontrar <strong class="text-white">OwnTracks</strong>',
+                      'Toque em <strong class="text-white">Localização</strong>',
+                      'Selecione <strong class="text-white">Sempre</strong>',
+                      'Ative <strong class="text-white">Localização Precisa</strong>',
+                    ].map((step, i) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="bg-slate-700 text-slate-300 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                        <span dangerouslySetInnerHTML={{ __html: step }} />
+                      </li>
+                    ))}
+                  </ol>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-lg">🤖</span>
+                    <h3 className="font-semibold text-white text-sm">Android</h3>
+                  </div>
+                  <ol className="space-y-2 text-xs text-slate-400">
+                    {[
+                      'Abra <strong class="text-white">Configurações</strong> do celular',
+                      'Vá em <strong class="text-white">Aplicativos → OwnTracks</strong>',
+                      'Toque em <strong class="text-white">Permissões → Localização</strong>',
+                      'Selecione <strong class="text-white">Permitir o tempo todo</strong>',
+                      'Em <strong class="text-white">Bateria</strong>, selecione <strong class="text-white">Sem restrições</strong>',
+                    ].map((step, i) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="bg-slate-700 text-slate-300 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                        <span dangerouslySetInnerHTML={{ __html: step }} />
+                      </li>
+                    ))}
+                  </ol>
+                </Card>
+              </div>
 
               <h3 className="font-semibold text-white mb-3 flex items-center gap-2"><Navigation size={16} className="text-amber-400" /> URLs por Funcionário</h3>
               <div className="space-y-3">
