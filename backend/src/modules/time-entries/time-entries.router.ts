@@ -67,7 +67,7 @@ router.post('/', upload.single('photo'), async (req: Request, res: Response, nex
       entry.photoUrl = `/api/time-entries/photo/${entry.id}`
     }
 
-    recalcTotalMinutes(userId, new Date()).catch(() => {})
+    recalcTotalMinutes(userId).catch(() => {})
 
     const io = getIo()
     if (io) {

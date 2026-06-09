@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/database'
 import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
+import { brtTodayRange } from '../time-entries/time-entries.service'
 import multer from 'multer'
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
@@ -107,9 +108,9 @@ router.get('/export-monthly', requireRole('ADMIN', 'MANAGER'), async (req: Reque
 
 router.get('/today', requireRole('ADMIN', 'MANAGER'), async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const dateOnly = new Date(); dateOnly.setHours(0, 0, 0, 0)
+    const { dateKey: dateOnly } = brtTodayRange()
     const days = await prisma.workDay.findMany({
-      where: { date: dateOnly },
+      where: { date: { gte: dateOnly, lt: new Date(dateOnly.getTime() + 86400000) } },
       select: {
         id: true, userId: true, date: true, totalKm: true, totalMinutes: true,
         status: true, odometerKm: true, odometerPhotoUrl: true,
@@ -143,7 +144,7 @@ router.patch('/today/odometer', upload.single('odometerPhoto'), async (req: Requ
     const odometerKm = req.body.odometerKm != null ? parseFloat(req.body.odometerKm) : undefined
     if (!odometerKm && !req.file) { res.status(400).json({ message: 'Informe km ou foto' }); return }
 
-    const dateOnly = new Date(); dateOnly.setHours(0, 0, 0, 0)
+    const { dateKey: dateOnly } = brtTodayRange()
     const wd = await prisma.workDay.upsert({
       where: { userId_date: { userId, date: dateOnly } },
       update: {

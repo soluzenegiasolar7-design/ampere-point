@@ -19,9 +19,19 @@ async function reverseGeocode(lat: number, lon: number): Promise<string | null> 
 
 const SEQUENCE: PunchType[] = ['ENTRADA', 'SAIDA_ALMOCO', 'RETORNO_ALMOCO', 'SAIDA']
 
+// "hoje" no fuso de Recife/Fortaleza (UTC-3, sem horário de verão)
+// ex: 22:12 local = 01:12 UTC do dia seguinte — tem que ser tratado como o mesmo dia
+export function brtTodayRange() {
+  const d = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Recife' }) // 'YYYY-MM-DD'
+  return {
+    start:   new Date(`${d}T00:00:00-03:00`),
+    end:     new Date(`${d}T23:59:59.999-03:00`),
+    dateKey: new Date(`${d}T00:00:00.000Z`), // chave canônica para WorkDay.date
+  }
+}
+
 function todayRange() {
-  const start = new Date(); start.setHours(0, 0, 0, 0)
-  const end = new Date(); end.setHours(23, 59, 59, 999)
+  const { start, end } = brtTodayRange()
   return { start, end }
 }
 
@@ -58,12 +68,12 @@ export async function punch(userId: string, data: {
     accuracy: data.accuracy,
   })
 
-  // Atualiza status do WorkDay
-  const dateOnly = new Date(); dateOnly.setHours(0, 0, 0, 0)
+  // Atualiza status do WorkDay usando data BRT
+  const { dateKey } = brtTodayRange()
   await prisma.workDay.upsert({
-    where: { userId_date: { userId, date: dateOnly } },
+    where: { userId_date: { userId, date: dateKey } },
     update: { status: data.type === 'SAIDA' ? 'FORA' : 'EM_SERVICO' },
-    create: { userId, date: dateOnly, status: 'EM_SERVICO' },
+    create: { userId, date: dateKey, status: 'EM_SERVICO' },
   })
 
   return entry
@@ -116,9 +126,8 @@ export async function listAllEntriesByDate(date: string) {
   })
 }
 
-export async function recalcTotalMinutes(userId: string, dateOnly: Date) {
-  const start = new Date(dateOnly); start.setHours(0, 0, 0, 0)
-  const end = new Date(dateOnly); end.setHours(23, 59, 59, 999)
+export async function recalcTotalMinutes(userId: string) {
+  const { start, end, dateKey } = brtTodayRange()
 
   const entries = await prisma.timeEntry.findMany({
     where: { userId, timestamp: { gte: start, lte: end } },
@@ -139,9 +148,9 @@ export async function recalcTotalMinutes(userId: string, dateOnly: Date) {
   }
 
   await prisma.workDay.upsert({
-    where: { userId_date: { userId, date: start } },
+    where: { userId_date: { userId, date: dateKey } },
     update: { totalMinutes: Math.max(0, totalMinutes) },
-    create: { userId, date: start, totalMinutes: Math.max(0, totalMinutes) },
+    create: { userId, date: dateKey, totalMinutes: Math.max(0, totalMinutes) },
   })
 }
 
