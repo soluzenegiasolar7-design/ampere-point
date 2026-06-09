@@ -260,7 +260,7 @@ export default function MapPage() {
     // cabeçalho
     doc.setFontSize(18)
     doc.setFont('helvetica', 'bold')
-    doc.text('AmperePoint — Relatório de Ponto', 14, 20)
+    doc.text('AmperePoint - Relatorio de Ponto', 14, 20)
 
     doc.setFontSize(11)
     doc.setFont('helvetica', 'normal')
@@ -276,7 +276,7 @@ export default function MapPage() {
     // card resumo
     autoTable(doc, {
       startY: 60,
-      head: [['KM por GPS', 'KM Tacômetro', 'Horas Trabalhadas', 'Dias Trabalhados', 'Horas Extras']],
+      head: [['KM por GPS', 'KM Tacometro', 'Horas Trabalhadas', 'Dias Trabalhados', 'Horas Extras']],
       body: [[
         `${histSummary.gpsKm.toFixed(1)} km`,
         histSummary.odometerKm > 0 ? `${histSummary.odometerKm.toFixed(1)} km` : '—',
@@ -295,14 +295,21 @@ export default function MapPage() {
     doc.setFont('helvetica', 'bold')
     doc.text('Registros de Ponto', 14, tableY)
 
+    const PUNCH_LABELS_PDF: Record<string, string> = {
+      ENTRADA: 'Entrada',
+      SAIDA_ALMOCO: 'Saida Almoco',
+      RETORNO_ALMOCO: 'Retorno Almoco',
+      SAIDA: 'Saida',
+    }
+
     const punchRows = histPunches.map((p: any) => {
       const dt = new Date(p.timestamp)
       return [
         dt.toLocaleDateString('pt-BR'),
-        PUNCH_LABELS[p.type] ?? p.type,
+        PUNCH_LABELS_PDF[p.type] ?? p.type,
         dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        p.odometerKm != null ? `${p.odometerKm} km` : '—',
-        p.address ?? '—',
+        p.odometerKm != null ? `${p.odometerKm} km` : '-',
+        p.address ?? '-',
       ]
     })
 
