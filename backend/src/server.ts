@@ -19,6 +19,7 @@ import app from './app'
 import { env } from './config/env'
 import { initSocket } from './socket/socket.handler'
 import { setIo } from './socket/io'
+import { startPunchAlerts } from './jobs/punch-alerts'
 import fs from 'fs'
 import path from 'path'
 
@@ -33,6 +34,8 @@ initSocket(io)
 
 const uploadDir = path.resolve(env.UPLOAD_DIR)
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true })
+
+startPunchAlerts()
 
 const port = parseInt(process.env.PORT || '3002')
 httpServer.listen(port, '0.0.0.0', () => {
