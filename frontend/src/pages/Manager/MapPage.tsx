@@ -528,7 +528,7 @@ export default function MapPage() {
                 </div>
 
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">
-                  Em serviço ({filteredEmployees.filter(e => getWorkDay(e.id)).length})
+                  Hoje ({filteredEmployees.filter(e => getWorkDay(e.id)).length})
                 </p>
 
                 {filteredEmployees.map(emp => {
