@@ -12,19 +12,25 @@ const PUNCH_LABELS: Record<string, string> = {
   SAIDA:          'saída',
 }
 
+// CALLMEBOT_RECIPIENTS = "5584988599822:apikey1,5584994507282:apikey2"
 async function sendWhatsApp(text: string) {
-  const { EVOLUTION_API_URL, EVOLUTION_API_KEY, EVOLUTION_INSTANCE, MANAGER_WHATSAPP_NUMBERS } = process.env
-  if (!EVOLUTION_API_URL || !MANAGER_WHATSAPP_NUMBERS || !EVOLUTION_INSTANCE) {
-    console.log('[punch-alerts] WhatsApp não configurado, pulando envio.')
+  const recipients = process.env.CALLMEBOT_RECIPIENTS
+  if (!recipients) {
+    console.log('[punch-alerts] CALLMEBOT_RECIPIENTS não configurado, pulando envio.')
     return
   }
-  const numbers = MANAGER_WHATSAPP_NUMBERS.split(',').map(n => n.trim()).filter(Boolean)
-  const url = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`
+
+  const pairs = recipients.split(',').map(r => r.trim()).filter(Boolean)
+
   await Promise.all(
-    numbers.map(number =>
-      axios.post(url, { number, text }, { headers: { apikey: EVOLUTION_API_KEY } })
-        .catch(e => console.error(`[punch-alerts] Erro ao enviar para ${number}:`, e.message))
-    )
+    pairs.map(pair => {
+      const [phone, apikey] = pair.split(':')
+      if (!phone || !apikey) return Promise.resolve()
+      const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${encodeURIComponent(text)}&apikey=${apikey}`
+      return axios.get(url)
+        .then(() => console.log(`[punch-alerts] Mensagem enviada para ${phone}`))
+        .catch(e => console.error(`[punch-alerts] Erro ao enviar para ${phone}:`, e.message))
+    })
   )
 }
 
