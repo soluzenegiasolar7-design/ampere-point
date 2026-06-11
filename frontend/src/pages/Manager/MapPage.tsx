@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -51,6 +51,7 @@ const PUNCH_BADGE_VARIANT: Record<string, 'success' | 'warning' | 'info' | 'dang
 }
 
 type Tab = 'mapa' | 'funcionarios' | 'pontos' | 'historico' | 'rastreamento'
+type UnitFilter = 'all' | 'Natal' | 'Caruaru'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'mapa',         label: 'Mapa',         icon: <Map size={16} /> },
@@ -114,6 +115,8 @@ export default function MapPage() {
   const [workDays, setWorkDays] = useState<any[]>([])
   const [allPunches, setAllPunches] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [unitFilter, setUnitFilter] = useState<UnitFilter>('all')
+  const [now, setNow] = useState(new Date())
 
   // mapa
   const [selectedTrail, setSelectedTrail] = useState<[number, number][] | null>(null)
@@ -149,6 +152,33 @@ export default function MapPage() {
   const [pdfLoading, setPdfLoading] = useState(false)
 
   useSocket(user?.role)
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000)
+    return () => clearInterval(id)
+  }, [])
+
+  const entradaByUser = useCallback((): Record<string, Date> => {
+    const map: Record<string, Date> = {}
+    for (const p of allPunches) {
+      if (p.type === 'ENTRADA') map[p.user?.id ?? p.userId] = new Date(p.timestamp)
+    }
+    return map
+  }, [allPunches])
+
+  const punchTypeByUser = useCallback((): Record<string, string> => {
+    const last: Record<string, string> = {}
+    for (const p of allPunches) {
+      const uid = p.user?.id ?? p.userId
+      if (!last[uid]) last[uid] = p.type
+    }
+    return last
+  }, [allPunches])
+
+  const elapsedSince = (ts: Date): string => {
+    const mins = Math.floor((now.getTime() - ts.getTime()) / 60000)
+    return `${Math.floor(mins / 60)}h${String(mins % 60).padStart(2, '0')}m`
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -209,9 +239,18 @@ export default function MapPage() {
   useEffect(() => { loadData() }, [])
   useEffect(() => { if (tab === 'pontos') loadPunchesByDate(punchDate) }, [tab, punchDate])
 
-  const getWorkDay = (uid: string) => workDays.find((w: any) => w.userId === uid)
-  const getLoc     = (uid: string) => userLocations[uid]
-  const inField    = employees.filter(e => getWorkDay(e.id)?.status === 'EM_SERVICO').length
+  const getWorkDay   = (uid: string) => workDays.find((w: any) => w.userId === uid)
+  const getLoc       = (uid: string) => userLocations[uid]
+  const entrada      = entradaByUser()
+  const lastPunch    = punchTypeByUser()
+  const absentEmps   = employees.filter(e => !workDays.some(w => w.userId === e.id))
+  const onLunchEmps  = employees.filter(e => lastPunch[e.id] === 'SAIDA_ALMOCO')
+  const finishedEmps = employees.filter(e => getWorkDay(e.id)?.status === 'FORA')
+  const inField      = employees.filter(e => {
+    const wd = getWorkDay(e.id)
+    return wd?.status === 'EM_SERVICO' && lastPunch[e.id] !== 'SAIDA_ALMOCO'
+  }).length
+  const filteredEmployees = unitFilter === 'all' ? employees : employees.filter(e => e.unit === unitFilter)
 
   const openEditEmp = (emp: any) => {
     setEditEmp(emp)
@@ -420,12 +459,29 @@ export default function MapPage() {
             <p className="text-xs text-slate-500">Painel do Gestor</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-3 text-sm">
           {loading ? <Spinner size="sm" className="text-amber-500" /> : (
-            <span className="flex items-center gap-1.5 text-emerald-400 text-xs font-medium">
-              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-              {inField} em campo
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-emerald-400 text-xs font-medium bg-emerald-500/10 px-2 py-1 rounded-lg">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                {inField} em campo
+              </span>
+              {onLunchEmps.length > 0 && (
+                <span className="text-xs font-medium text-amber-400 bg-amber-500/10 px-2 py-1 rounded-lg">
+                  {onLunchEmps.length} almoço
+                </span>
+              )}
+              {absentEmps.length > 0 && (
+                <span className="text-xs font-medium text-red-400 bg-red-500/10 px-2 py-1 rounded-lg">
+                  {absentEmps.length} ausente{absentEmps.length > 1 ? 's' : ''}
+                </span>
+              )}
+              {finishedEmps.length > 0 && (
+                <span className="text-xs font-medium text-slate-400 bg-slate-700/50 px-2 py-1 rounded-lg">
+                  {finishedEmps.length} saiu
+                </span>
+              )}
+            </div>
           )}
           <button onClick={() => { loadData() }} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
             <RefreshCw size={15} />
@@ -459,29 +515,55 @@ export default function MapPage() {
           <div className="flex h-full">
             <div className={clsx('bg-slate-900/80 overflow-hidden shrink-0 transition-all duration-200', sidebarOpen ? 'w-72' : 'w-0')}>
               <div className="p-3 w-72 h-full overflow-y-auto">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-1">
-                  Funcionários ({employees.length})
+                {/* Unit filter */}
+                <div className="flex gap-1 mb-3">
+                  {(['all', 'Natal', 'Caruaru'] as UnitFilter[]).map(u => (
+                    <button key={u} onClick={() => setUnitFilter(u)}
+                      className={clsx('flex-1 text-xs py-1.5 rounded-lg font-medium transition-colors',
+                        unitFilter === u ? 'bg-amber-500 text-gray-950' : 'bg-slate-800 text-slate-400 hover:text-white'
+                      )}>
+                      {u === 'all' ? 'Todos' : u}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">
+                  Em serviço ({filteredEmployees.filter(e => getWorkDay(e.id)).length})
                 </p>
-                {employees.map(emp => {
-                  const wd = getWorkDay(emp.id)
+
+                {filteredEmployees.map(emp => {
+                  const wd  = getWorkDay(emp.id)
                   const loc = getLoc(emp.id)
-                  const isActive = wd?.status === 'EM_SERVICO'
+                  const punch = lastPunch[emp.id]
+                  const onLunch = punch === 'SAIDA_ALMOCO'
+                  const finished = wd?.status === 'FORA'
+                  const isActive = wd?.status === 'EM_SERVICO' && !onLunch
+                  const entradaTs = entrada[emp.id]
+                  const elapsed = entradaTs && !finished ? elapsedSince(entradaTs) : null
+                  const displayTime = wd?.totalMinutes && wd.totalMinutes > 0
+                    ? `${Math.floor(wd.totalMinutes/60)}h${String(wd.totalMinutes%60).padStart(2,'0')}m`
+                    : elapsed
+                  if (!wd) return null
                   return (
                     <div key={emp.id} className={clsx('rounded-xl mb-2 border transition-colors',
                       selectedUser === emp.id ? 'bg-amber-500/10 border-amber-500/30' : 'bg-slate-800 border-slate-700 hover:border-slate-600'
                     )}>
                       <div className="cursor-pointer p-3 pb-2" onClick={() => setSelectedEmployeeModal({ id: emp.id, name: emp.name, unit: emp.unit })}>
                         <div className="flex justify-between items-center mb-1">
-                          <span className="font-medium text-white text-sm hover:text-amber-400 transition-colors">{emp.name}</span>
-                          <Badge variant={isActive ? 'success' : 'default'}>
-                            <span className={clsx('w-1.5 h-1.5 rounded-full', isActive ? 'bg-emerald-400' : 'bg-slate-500')} />
-                            {isActive ? 'Campo' : 'Fora'}
+                          <span className="font-medium text-white text-sm hover:text-amber-400 transition-colors truncate mr-2">{emp.name}</span>
+                          <Badge variant={finished ? 'default' : onLunch ? 'warning' : isActive ? 'success' : 'default'}>
+                            <span className={clsx('w-1.5 h-1.5 rounded-full', isActive ? 'bg-emerald-400' : onLunch ? 'bg-amber-400' : 'bg-slate-500')} />
+                            {finished ? 'Saiu' : onLunch ? 'Almoço' : isActive ? 'Campo' : 'Fora'}
                           </Badge>
                         </div>
                         <p className="text-xs text-slate-500 mb-1.5">{emp.unit}</p>
-                        {wd && (
+                        {displayTime && (
                           <div className="flex gap-3 text-xs">
-                            <span className="flex items-center gap-1 text-slate-400"><Clock size={11} /> {Math.floor(wd.totalMinutes/60)}h{wd.totalMinutes%60}m</span>
+                            <span className="flex items-center gap-1 text-slate-400">
+                              <Clock size={11} />
+                              {displayTime}
+                              {elapsed && !wd?.totalMinutes && <span className="text-slate-600"> (em curso)</span>}
+                            </span>
                           </div>
                         )}
                         {loc && <p className="text-xs text-slate-600 mt-1">Última pos: {fmtTime(loc.timestamp)}</p>}
@@ -493,6 +575,24 @@ export default function MapPage() {
                     </div>
                   )
                 })}
+
+                {/* Absent employees */}
+                {filteredEmployees.filter(e => !getWorkDay(e.id)).length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold text-red-500/70 uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
+                      <AlertCircle size={11} /> Ausentes ({filteredEmployees.filter(e => !getWorkDay(e.id)).length})
+                    </p>
+                    {filteredEmployees.filter(e => !getWorkDay(e.id)).map(emp => (
+                      <div key={emp.id} className="rounded-xl mb-2 border border-red-900/30 bg-red-950/20 p-3">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium text-slate-400 text-sm truncate mr-2">{emp.name}</span>
+                          <Badge variant="danger">Ausente</Badge>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-0.5">{emp.unit}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
