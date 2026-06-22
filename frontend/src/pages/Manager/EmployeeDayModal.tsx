@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Polyline, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import { X, MapPin, Camera, Car, Clock, Navigation, ChevronLeft, ChevronRight } from 'lucide-react'
-import { api } from '../../services/api'
+import { api, photoUrl } from '../../services/api'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://ampere-point-production.up.railway.app'
 const TODAY = new Date().toISOString().slice(0, 10)
 const STANDARD_MINUTES = 8 * 60
 
@@ -41,6 +40,7 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
   const [workDayData, setWorkDayData] = useState<WorkDayData>(null)
   const [punches, setPunches] = useState<any[]>([])
   const [trail, setTrail] = useState<[number, number][]>([])
+  const [trailFull, setTrailFull] = useState<{ lat: number; lng: number; ts: number }[]>([])
   const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [mapReady, setMapReady] = useState(false)
@@ -57,7 +57,9 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
           api.get(`/api/work-days/user/${employee.id}?date=${currentDate}`),
         ])
         setPunches(pRes.data)
-        setTrail(tRes.data.map((p: any) => [p.latitude, p.longitude] as [number, number]))
+        const gpsPoints = tRes.data as any[]
+        setTrail(gpsPoints.map((p) => [p.latitude, p.longitude] as [number, number]))
+        setTrailFull(gpsPoints.map((p) => ({ lat: p.latitude, lng: p.longitude, ts: new Date(p.timestamp || p.ts || 0).getTime() })))
         setWorkDayData(wRes.data)
       } catch { /* show empty state */ }
       finally {
@@ -85,6 +87,26 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
   const fmt = (ts: string) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   const extraMinutes = workDayData ? Math.max(0, workDayData.totalMinutes - STANDARD_MINUTES) : 0
   const mapCenter: [number, number] = trail.length > 0 ? trail[Math.floor(trail.length / 2)] : [-5.7945, -35.2110]
+
+  const lunchStats = (() => {
+    const saidaAlmoco   = punches.find((p: any) => p.type === 'SAIDA_ALMOCO')
+    const retornoAlmoco = punches.find((p: any) => p.type === 'RETORNO_ALMOCO')
+    if (!saidaAlmoco || !retornoAlmoco || trailFull.length === 0) return null
+    const t0 = new Date(saidaAlmoco.timestamp).getTime()
+    const t1 = new Date(retornoAlmoco.timestamp).getTime()
+    const lunchMinutes = Math.round((t1 - t0) / 60000)
+    const haversine = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+      const R = 6371; const dLat = (b.lat - a.lat) * Math.PI / 180; const dLng = (b.lng - a.lng) * Math.PI / 180
+      const x = Math.sin(dLat/2)**2 + Math.cos(a.lat * Math.PI/180) * Math.cos(b.lat * Math.PI/180) * Math.sin(dLng/2)**2
+      return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x))
+    }
+    const lunchPoints = trailFull.filter(p => p.ts >= t0 && p.ts <= t1)
+    let lunchKm = 0
+    for (let i = 1; i < lunchPoints.length; i++) lunchKm += haversine(lunchPoints[i-1], lunchPoints[i])
+    const effectiveMinutes = workDayData ? workDayData.totalMinutes : 0
+    const effectiveKm = workDayData ? workDayData.totalKm - lunchKm : 0
+    return { lunchMinutes, lunchKm, effectiveMinutes, effectiveKm }
+  })()
 
   return (
     <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 backdrop-blur-sm" style={{ zIndex: 9999 }}>
@@ -140,6 +162,32 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
               ))}
             </div>
 
+            {/* Efetivo vs Não efetivo */}
+            {lunchStats && (
+              <div className="px-5 pb-5 border-b border-slate-800">
+                <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-3">Efetivo vs Não efetivo</p>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div />
+                  <div className="font-semibold text-emerald-400">Efetivo</div>
+                  <div className="font-semibold text-yellow-400">Não efetivo</div>
+                  <div className="text-slate-500 flex items-center gap-1 justify-end"><Clock size={11} /> Tempo</div>
+                  <div className="bg-slate-800 rounded-lg py-1.5 font-bold text-white tabular-nums">
+                    {Math.floor(lunchStats.effectiveMinutes / 60)}h{String(lunchStats.effectiveMinutes % 60).padStart(2, '0')}m
+                  </div>
+                  <div className="bg-slate-800 rounded-lg py-1.5 font-bold text-yellow-300 tabular-nums">
+                    {Math.floor(lunchStats.lunchMinutes / 60)}h{String(lunchStats.lunchMinutes % 60).padStart(2, '0')}m
+                  </div>
+                  <div className="text-slate-500 flex items-center gap-1 justify-end"><Navigation size={11} /> Km GPS</div>
+                  <div className="bg-slate-800 rounded-lg py-1.5 font-bold text-white tabular-nums">
+                    {Math.max(0, lunchStats.effectiveKm).toFixed(1)} km
+                  </div>
+                  <div className="bg-slate-800 rounded-lg py-1.5 font-bold text-yellow-300 tabular-nums">
+                    {lunchStats.lunchKm.toFixed(1)} km
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Mapa */}
             {trail.length > 1 && mapReady && (
               <div className="p-5 border-b border-slate-800">
@@ -170,8 +218,8 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
                     return (
                       <div key={type} className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
                         {punch?.photoUrl ? (
-                          <div className="cursor-zoom-in" onClick={() => setZoomedPhoto(`${API_URL}${punch.photoUrl}`)}>
-                            <img src={`${API_URL}${punch.photoUrl}`} alt={PUNCH_LABELS[type]} className="w-full object-cover" style={{ height: 100 }} />
+                          <div className="cursor-zoom-in" onClick={() => setZoomedPhoto(photoUrl(punch.photoUrl))}>
+                            <img src={photoUrl(punch.photoUrl)} alt={PUNCH_LABELS[type]} className="w-full object-cover" style={{ height: 100 }} />
                           </div>
                         ) : (
                           <div className="flex items-center justify-center bg-slate-900 text-slate-700" style={{ height: 100 }}>
@@ -200,8 +248,8 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
                   <Car size={12} /> Foto do tacômetro
                 </p>
                 <div className="cursor-zoom-in inline-block rounded-xl overflow-hidden border border-slate-700"
-                  onClick={() => setZoomedPhoto(`${API_URL}${workDayData.odometerPhotoUrl}`)}>
-                  <img src={`${API_URL}${workDayData.odometerPhotoUrl}`} alt="Tacômetro" className="max-h-40 object-contain" />
+                  onClick={() => setZoomedPhoto(photoUrl(workDayData.odometerPhotoUrl))}>
+                  <img src={photoUrl(workDayData.odometerPhotoUrl)} alt="Tacômetro" className="max-h-40 object-contain" />
                 </div>
               </div>
             )}

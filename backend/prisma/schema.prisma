@@ -36,6 +36,7 @@ model User {
   cpf          String?     @unique
   pis          String?     @unique
   phone        String?
+  gpsToken     String      @unique @default(uuid())
   isActive     Boolean     @default(true)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt

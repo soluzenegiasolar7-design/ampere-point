@@ -11,7 +11,9 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     const unit = req.query.unit as string | undefined
     const unitStr = Array.isArray(unit) ? unit[0] : unit
     const includeInactive = req.query.includeInactive === 'true'
-    res.json(await listUsers(unitStr, includeInactive))
+    const callerRole = (req as AuthRequest).userRole
+    const includeToken = ['ADMIN', 'MANAGER'].includes(callerRole)
+    res.json(await listUsers(unitStr, includeInactive, includeToken))
   } catch (e) { next(e) }
 })
 
@@ -32,6 +34,15 @@ const createSchema = z.object({
   pis: z.string().optional(),
 })
 
+const updateSchema = z.object({
+  name: z.string().min(2).optional(),
+  role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE']).optional(),
+  unit: z.string().optional(),
+  phone: z.string().optional(),
+  isActive: z.boolean().optional(),
+  password: z.string().min(6).optional(),
+})
+
 router.post('/', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = createSchema.parse(req.body)
@@ -41,7 +52,8 @@ router.post('/', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Resp
 
 router.patch('/:id', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json(await updateUser(req.params.id as string, req.body))
+    const data = updateSchema.parse(req.body)
+    res.json(await updateUser(req.params.id as string, data))
   } catch (e) { next(e) }
 })
 

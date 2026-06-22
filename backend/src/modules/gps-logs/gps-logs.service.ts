@@ -1,4 +1,5 @@
 import { prisma } from '../../config/database'
+import { brtTodayRange } from '../time-entries/time-entries.service'
 import { haversineKm } from '../../shared/utils/haversine'
 
 // Velocidade mínima (km/h) para contabilizar deslocamento.
@@ -11,11 +12,11 @@ export async function createLog(userId: string, data: {
 }) {
   const log = await prisma.gpsLog.create({ data: { userId, ...data } })
 
-  const dateOnly = new Date(); dateOnly.setHours(0, 0, 0, 0)
-  const end      = new Date(); end.setHours(23, 59, 59, 999)
+  const { start, end, dateKey: dateOnly } = brtTodayRange()
+
 
   const logs = await prisma.gpsLog.findMany({
-    where: { userId, timestamp: { gte: dateOnly, lte: end } },
+    where: { userId, timestamp: { gte: start, lte: end } },
     orderBy: { timestamp: 'asc' },
     select: { latitude: true, longitude: true, timestamp: true },
   })
@@ -46,8 +47,7 @@ function calcVehicleKm(logs: { latitude: number; longitude: number; timestamp: D
 }
 
 export async function getTodayTrail(userId: string) {
-  const start = new Date(); start.setHours(0, 0, 0, 0)
-  const end   = new Date(); end.setHours(23, 59, 59, 999)
+  const { start, end } = brtTodayRange()
   return prisma.gpsLog.findMany({
     where: { userId, timestamp: { gte: start, lte: end } },
     orderBy: { timestamp: 'asc' },

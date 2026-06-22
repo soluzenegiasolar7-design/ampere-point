@@ -20,3 +20,8 @@ api.interceptors.response.use(
     return Promise.reject(err)
   }
 )
+
+export function photoUrl(path: string): string {
+  const token = localStorage.getItem('ap_token')
+  return `${import.meta.env.VITE_API_URL || 'http://localhost:3002'}${path}${token ? `?token=${encodeURIComponent(token)}` : ''}`
+}

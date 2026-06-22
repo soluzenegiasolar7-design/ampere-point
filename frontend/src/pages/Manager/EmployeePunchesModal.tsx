@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import { X, Camera, MapPin } from 'lucide-react'
-import { api } from '../../services/api'
+import { api, photoUrl } from '../../services/api'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://ampere-point-production.up.railway.app'
 
 const PUNCH_LABELS: Record<string, string> = {
   ENTRADA: 'Entrada', SAIDA_ALMOCO: 'Saída Almoço', RETORNO_ALMOCO: 'Retorno Almoço', SAIDA: 'Saída',
@@ -68,8 +66,8 @@ export default function EmployeePunchesModal({ employee, onClose }: Props) {
                 <span className="text-xs text-slate-600">#{i + 1}</span>
               </div>
               {entry.photoUrl ? (
-                <div className="cursor-zoom-in relative" onClick={() => setZoomedPhoto(`${API_URL}${entry.photoUrl}`)}>
-                  <img src={`${API_URL}${entry.photoUrl}`} alt="Selfie" className="w-full object-cover max-h-52"
+                <div className="cursor-zoom-in relative" onClick={() => setZoomedPhoto(photoUrl(entry.photoUrl))}>
+                  <img src={photoUrl(entry.photoUrl)} alt="Selfie" className="w-full object-cover max-h-52"
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                   <p className="text-xs text-slate-500 text-center py-1.5">Toque para ampliar</p>
                 </div>

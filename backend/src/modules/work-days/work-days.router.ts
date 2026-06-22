@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { prisma } from '../../config/database'
-import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
+import { requireAuth, requireAuthPhoto, requireRole, AuthRequest } from '../auth/auth.middleware'
 import { brtTodayRange } from '../time-entries/time-entries.service'
 import multer from 'multer'
 
@@ -9,7 +9,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 const router = Router()
 
 // foto do odômetro do WorkDay — pública (img tag não envia auth header)
-router.get('/odometer-photo/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/odometer-photo/:id', requireAuthPhoto, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const wd = await prisma.workDay.findUnique({
       where: { id: req.params.id as string },

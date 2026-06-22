@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import { punch, listTodayEntries, listAllTodayEntries, listAllEntriesByDate, listEntriesByDate, listEntriesByRange, nextPunchType, recalcTotalMinutes } from './time-entries.service'
-import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
+import { requireAuth, requireAuthPhoto, requireRole, AuthRequest } from '../auth/auth.middleware'
 import multer from 'multer'
 import { getIo } from '../../socket/io'
 import { prisma } from '../../config/database'
@@ -12,7 +12,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 const router = Router()
 
 // rotas de foto ficam ANTES do requireAuth — img tags não enviam Authorization header
-router.get('/photo/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/photo/:id', requireAuthPhoto, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const entry = await prisma.timeEntry.findUnique({
       where: { id: req.params.id as string },
@@ -25,7 +25,7 @@ router.get('/photo/:id', async (req: Request, res: Response, next: NextFunction)
   } catch (e) { next(e) }
 })
 
-router.get('/odometer-photo/:id', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/odometer-photo/:id', requireAuthPhoto, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const entry = await prisma.timeEntry.findUnique({
       where: { id: req.params.id as string },

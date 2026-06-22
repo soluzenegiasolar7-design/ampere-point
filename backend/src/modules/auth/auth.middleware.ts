@@ -8,17 +8,33 @@ export interface AuthRequest extends Request {
   userRole: string
 }
 
+function verifyToken(token: string): { userId: string; role: string } {
+  return jwt.verify(token, env.JWT_SECRET) as { userId: string; role: string }
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization
   if (!header?.startsWith('Bearer ')) throw new AppError('Não autorizado', 401)
-  const token = header.slice(7)
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as { userId: string; role: string }
+    const payload = verifyToken(header.slice(7))
     ;(req as AuthRequest).userId = payload.userId
     ;(req as AuthRequest).userRole = payload.role
     next()
   } catch {
     throw new AppError('Token inválido', 401)
+  }
+}
+
+export function requireAuthPhoto(req: Request, res: Response, next: NextFunction) {
+  const token = (req.query.token as string) || req.headers.authorization?.replace('Bearer ', '')
+  if (!token) { res.status(401).end(); return }
+  try {
+    const payload = verifyToken(token)
+    ;(req as AuthRequest).userId = payload.userId
+    ;(req as AuthRequest).userRole = payload.role
+    next()
+  } catch {
+    res.status(401).end()
   }
 }
 

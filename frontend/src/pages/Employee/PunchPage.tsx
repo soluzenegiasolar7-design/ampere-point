@@ -3,7 +3,7 @@ import {
   Zap, LogOut, Clock, CheckCircle2, Navigation,
   Camera, Car, AlertCircle, ChevronRight, RefreshCw, X
 } from 'lucide-react'
-import { api } from '../../services/api'
+import { api, photoUrl } from '../../services/api'
 import { useAuthStore } from '../../stores/auth.store'
 import { useSocket } from '../../hooks/useSocket'
 import { useGPS } from '../../hooks/useGPS'
@@ -11,8 +11,6 @@ import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002'
 
 type PunchType = 'ENTRADA' | 'SAIDA_ALMOCO' | 'RETORNO_ALMOCO' | 'SAIDA'
 type Step = 'idle' | 'selfie' | 'odo-form' | 'odo-camera'
@@ -102,7 +100,9 @@ export default function PunchPage() {
   const selfie = useCamera('user')
   const odo = useCamera('environment')
 
-  const isWorking = nextPunch === 'SAIDA_ALMOCO' || nextPunch === 'SAIDA'
+  const hasEntrada = entries.some((e: any) => e.type === 'ENTRADA')
+  const hasSaida   = entries.some((e: any) => e.type === 'SAIDA')
+  const isWorking  = hasEntrada && !hasSaida
   useSocket(user?.role)
   useGPS(isWorking)
 
@@ -133,8 +133,26 @@ export default function PunchPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  const prePunchOdo = useRef(false)
+
   // ── SELFIE FLOW ──
   const handlePunchClick = async () => {
+    if (nextPunch === 'SAIDA') {
+      prePunchOdo.current = true
+      setOdoKm(''); setOdoPhotoBlob(null)
+      setStep('odo-form')
+    } else {
+      prePunchOdo.current = false
+      setStep('selfie')
+      await selfie.start()
+    }
+  }
+
+  const continueToSelfie = async () => {
+    if (!odoKm || isNaN(Number(odoKm)) || Number(odoKm) < 0) {
+      showToast('error', 'Informe os km rodados hoje')
+      return
+    }
     setStep('selfie')
     await selfie.start()
   }
@@ -149,20 +167,32 @@ export default function PunchPage() {
         navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 8000 })
       ).catch(() => null)
 
+      if (!pos) {
+        showToast('error', 'Não foi possível obter localização. Verifique se o GPS está ativo.')
+        setStep('idle')
+        return
+      }
+
       const form = new FormData()
       form.append('type', nextPunch!)
-      form.append('latitude',  String(pos?.coords.latitude  ?? -5.7945))
-      form.append('longitude', String(pos?.coords.longitude ?? -35.2110))
-      if (pos?.coords.accuracy)  form.append('accuracy', String(pos.coords.accuracy))
+      form.append('latitude',  String(pos.coords.latitude))
+      form.append('longitude', String(pos.coords.longitude))
+      form.append('accuracy',  String(pos.coords.accuracy))
       if (blob) form.append('photo', blob, 'selfie.jpg')
 
       await api.post('/api/time-entries', form)
-      await loadData()
 
-      const wasSaida = nextPunch === 'SAIDA'
-      setStep(wasSaida ? 'odo-form' : 'idle')
-      if (!wasSaida) showToast('success', `${PUNCH_CONFIG[nextPunch!]?.label} registrado!`)
-      if (wasSaida) { setOdoKm(''); setOdoPhotoBlob(null) }
+      if (prePunchOdo.current && odoKm) {
+        const odoForm = new FormData()
+        odoForm.append('odometerKm', odoKm)
+        if (odoPhotoBlob) odoForm.append('odometerPhoto', odoPhotoBlob, 'odometer.jpg')
+        await api.patch('/api/work-days/today/odometer', odoForm).catch(() => {})
+      }
+
+      prePunchOdo.current = false
+      await loadData()
+      showToast('success', `${PUNCH_CONFIG[nextPunch!]?.label} registrado!`)
+      setStep('idle')
     } catch (e: any) {
       selfie.stop()
       showToast('error', e.response?.data?.error || 'Erro ao registrar ponto')
@@ -319,27 +349,12 @@ export default function PunchPage() {
 
             {workDay?.odometerKm != null ? (
               <>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div className="bg-slate-800 rounded-xl p-3 text-center">
-                    <p className="text-purple-400 font-bold text-lg">{Number(workDay.odometerKm).toFixed(0)} km</p>
-                    <p className="text-slate-500 text-xs mt-0.5">Informado</p>
-                  </div>
-                  <div className="bg-slate-800 rounded-xl p-3 text-center">
-                    <p className="text-blue-400 font-bold text-lg">{workDay.totalKm.toFixed(1)} km</p>
-                    <p className="text-slate-500 text-xs mt-0.5">GPS</p>
-                  </div>
+                <div className="bg-slate-800 rounded-xl p-3 text-center mb-3">
+                  <p className="text-purple-400 font-bold text-2xl">{Number(workDay.odometerKm).toFixed(0)} km</p>
+                  <p className="text-slate-500 text-xs mt-0.5">Informado</p>
                 </div>
-                {(() => {
-                  const diff = Math.abs(Number(workDay.odometerKm) - workDay.totalKm)
-                  const pct  = workDay.totalKm > 0 ? (diff / workDay.totalKm) * 100 : 0
-                  return (
-                    <p className={`text-xs text-center mb-3 ${pct > 15 ? 'text-amber-400' : 'text-slate-500'}`}>
-                      Diferença: {diff.toFixed(1)} km {pct > 15 ? '— Verificar' : '— Ok'}
-                    </p>
-                  )
-                })()}
                 {workDay.odometerPhotoUrl && (
-                  <img src={`${API_URL}${workDay.odometerPhotoUrl}`} alt="Odômetro" className="w-full rounded-xl object-cover max-h-28 mb-3" />
+                  <img src={photoUrl(workDay.odometerPhotoUrl)} alt="Odômetro" className="w-full rounded-xl object-cover max-h-28 mb-3" />
                 )}
                 <button
                   onClick={() => { setOdoKm(String(workDay.odometerKm)); setOdoPhotoBlob(null); setStep('odo-form') }}
@@ -432,8 +447,15 @@ export default function PunchPage() {
         <div className="fixed inset-0 bg-[#080c14] z-50 flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/80">
             <div>
-              <p className="text-white font-bold flex items-center gap-2"><Car size={18} className="text-amber-400" /> Quilometragem do dia</p>
-              {!workDay?.odometerKm && <p className="text-amber-500/80 text-xs mt-0.5">Necessário para encerrar a saída</p>}
+              <p className="text-white font-bold flex items-center gap-2">
+                <Car size={18} className="text-amber-400" />
+                Quilometragem do dia
+                {prePunchOdo.current && <span className="text-amber-500/70 font-normal text-sm">— Passo 1 de 2</span>}
+              </p>
+              {prePunchOdo.current
+                ? <p className="text-amber-500/80 text-xs mt-0.5">Informe os km antes de registrar a saída</p>
+                : !workDay?.odometerKm && <p className="text-amber-500/80 text-xs mt-0.5">Necessário para encerrar a saída</p>
+              }
             </div>
             <button onClick={cancelFlow} className="p-2 rounded-full hover:bg-slate-700 text-slate-400 transition-colors"><X size={18} /></button>
           </div>
@@ -469,10 +491,17 @@ export default function PunchPage() {
               )}
             </div>
 
-            <Button fullWidth size="lg" onClick={submitOdometer} loading={odoLoading} className="mt-auto">
-              <CheckCircle2 size={18} />
-              {odoLoading ? 'Salvando...' : 'Confirmar Quilometragem'}
-            </Button>
+            {prePunchOdo.current ? (
+              <Button fullWidth size="lg" onClick={continueToSelfie} className="mt-auto">
+                <Camera size={18} />
+                Continuar para selfie →
+              </Button>
+            ) : (
+              <Button fullWidth size="lg" onClick={submitOdometer} loading={odoLoading} className="mt-auto">
+                <CheckCircle2 size={18} />
+                {odoLoading ? 'Salvando...' : 'Confirmar Quilometragem'}
+              </Button>
+            )}
           </div>
         </div>
       )}

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { useLocationStore } from '../../stores/location.store'
 import { useSocket } from '../../hooks/useSocket'
-import { api } from '../../services/api'
+import { api, photoUrl } from '../../services/api'
 import { useAuthStore } from '../../stores/auth.store'
 import EmployeeDayModal from './EmployeeDayModal'
 import jsPDF from 'jspdf'
@@ -22,7 +22,7 @@ import { Input } from '../../components/ui/Input'
 import { Spinner } from '../../components/ui/Spinner'
 import { clsx } from 'clsx'
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://ampere-point-production.up.railway.app'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://ampere-point-production.up.railway.app'
 
 // ── Leaflet icons ──
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -797,8 +797,8 @@ export default function MapPage() {
                 {allPunches.map((punch: any) => (
                   <Card key={punch.id} className="overflow-hidden">
                     {punch.photoUrl ? (
-                      <div className="cursor-zoom-in relative" onClick={() => setZoomedPhoto(`${API_URL}${punch.photoUrl}`)}>
-                        <img src={`${API_URL}${punch.photoUrl}`} alt="Selfie" className="w-full object-cover h-44"
+                      <div className="cursor-zoom-in relative" onClick={() => setZoomedPhoto(photoUrl(punch.photoUrl))}>
+                        <img src={photoUrl(punch.photoUrl)} alt="Selfie" className="w-full object-cover h-44"
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                         <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
                           <Search size={11} /> Ampliar
@@ -893,8 +893,8 @@ export default function MapPage() {
                       {punches.map((punch: any) => (
                         <Card key={punch.id} className="overflow-hidden mb-2">
                           {punch.photoUrl && (
-                            <div className="cursor-zoom-in relative" onClick={() => setZoomedPhoto(`${API_URL}${punch.photoUrl}`)}>
-                              <img src={`${API_URL}${punch.photoUrl}`} alt="Selfie" className="w-full object-cover h-24"
+                            <div className="cursor-zoom-in relative" onClick={() => setZoomedPhoto(photoUrl(punch.photoUrl))}>
+                              <img src={photoUrl(punch.photoUrl)} alt="Selfie" className="w-full object-cover h-24"
                                 onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                               <div className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full"><Search size={10} /></div>
                             </div>
@@ -1028,7 +1028,7 @@ export default function MapPage() {
               <h3 className="font-semibold text-white mb-3 flex items-center gap-2"><Navigation size={16} className="text-amber-400" /> URLs por Funcionário</h3>
               <div className="space-y-3">
                 {employees.map(emp => {
-                  const url = `${API_URL}/api/gps-ext/${emp.id}`
+                  const url = `${API_BASE}/api/gps-ext/${emp.id}?token=${emp.gpsToken ?? ''}`
                   const copied = copiedUrl === url
                   return (
                     <Card key={emp.id} className="p-4">
