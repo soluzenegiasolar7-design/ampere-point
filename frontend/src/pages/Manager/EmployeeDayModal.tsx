@@ -248,8 +248,8 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
                   <Car size={12} /> Foto do tacômetro
                 </p>
                 <div className="cursor-zoom-in inline-block rounded-xl overflow-hidden border border-slate-700"
-                  onClick={() => setZoomedPhoto(photoUrl(workDayData.odometerPhotoUrl))}>
-                  <img src={photoUrl(workDayData.odometerPhotoUrl)} alt="Tacômetro" className="max-h-40 object-contain" />
+                  onClick={() => setZoomedPhoto(photoUrl(workDayData.odometerPhotoUrl!))}>
+                  <img src={photoUrl(workDayData.odometerPhotoUrl!)} alt="Tacômetro" className="max-h-40 object-contain" />
                 </div>
               </div>
             )}

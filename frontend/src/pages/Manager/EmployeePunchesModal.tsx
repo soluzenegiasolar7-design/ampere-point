@@ -66,8 +66,8 @@ export default function EmployeePunchesModal({ employee, onClose }: Props) {
                 <span className="text-xs text-slate-600">#{i + 1}</span>
               </div>
               {entry.photoUrl ? (
-                <div className="cursor-zoom-in relative" onClick={() => setZoomedPhoto(photoUrl(entry.photoUrl))}>
-                  <img src={photoUrl(entry.photoUrl)} alt="Selfie" className="w-full object-cover max-h-52"
+                <div className="cursor-zoom-in relative" onClick={() => setZoomedPhoto(photoUrl(entry.photoUrl!))}>
+                  <img src={photoUrl(entry.photoUrl!)} alt="Selfie" className="w-full object-cover max-h-52"
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                   <p className="text-xs text-slate-500 text-center py-1.5">Toque para ampliar</p>
                 </div>
