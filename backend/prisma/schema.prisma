@@ -26,23 +26,42 @@ enum WorkStatus {
   FORA
 }
 
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AbsenceType {
+  FALTA
+  ATESTADO
+  ABONADA
+}
+
 model User {
-  id           String      @id @default(uuid())
-  name         String
-  email        String      @unique
-  passwordHash String
-  role         UserRole    @default(EMPLOYEE)
-  unit         String?
-  cpf          String?     @unique
-  pis          String?     @unique
-  phone        String?
-  gpsToken     String      @unique @default(uuid())
-  isActive     Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  timeEntries  TimeEntry[]
-  gpsLogs      GpsLog[]
-  workDays     WorkDay[]
+  id              String           @id @default(uuid())
+  name            String
+  email           String           @unique
+  passwordHash    String
+  role            UserRole         @default(EMPLOYEE)
+  unit            String?
+  cpf             String?          @unique
+  pis             String?          @unique
+  phone           String?
+  gpsToken        String           @unique @default(uuid())
+  isActive        Boolean          @default(true)
+  hireDate        DateTime?
+  contractHours   Float            @default(8.0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  timeEntries     TimeEntry[]
+  gpsLogs         GpsLog[]
+  workDays        WorkDay[]
+  payslips        Payslip[]
+  absences        Absence[]
+  vacations       Vacation[]
+  dayOffs         DayOff[]
+  timeAdjustments TimeAdjustment[]
 
   @@map("users")
 }
@@ -100,4 +119,89 @@ model WorkDay {
 
   @@unique([userId, date])
   @@map("work_days")
+}
+
+model Payslip {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  month       Int
+  year        Int
+  fileName    String
+  fileData    Bytes
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, month, year])
+  @@map("payslips")
+}
+
+model TimeAdjustment {
+  id            String        @id @default(uuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  date          DateTime
+  punchType     PunchType
+  requestedTime DateTime
+  reason        String
+  status        RequestStatus @default(PENDING)
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  reviewNote    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("time_adjustments")
+}
+
+model Absence {
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  date            DateTime
+  type            AbsenceType   @default(FALTA)
+  reason          String?
+  attachmentData  Bytes?
+  attachmentName  String?
+  status          RequestStatus @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  reviewNote      String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([userId, date])
+  @@map("absences")
+}
+
+model Vacation {
+  id          String        @id @default(uuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  notes       String?
+  status      RequestStatus @default(PENDING)
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("vacations")
+}
+
+model DayOff {
+  id          String        @id @default(uuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  date        DateTime
+  reason      String?
+  status      RequestStatus @default(PENDING)
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([userId, date])
+  @@map("day_offs")
 }

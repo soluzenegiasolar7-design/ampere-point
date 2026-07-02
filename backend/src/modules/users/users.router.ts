@@ -32,6 +32,8 @@ const createSchema = z.object({
   phone: z.string().optional(),
   cpf: z.string().optional(),
   pis: z.string().optional(),
+  hireDate: z.string().optional(),
+  contractHours: z.number().positive().optional(),
 })
 
 const updateSchema = z.object({
@@ -39,8 +41,12 @@ const updateSchema = z.object({
   role: z.enum(['ADMIN', 'MANAGER', 'EMPLOYEE']).optional(),
   unit: z.string().optional(),
   phone: z.string().optional(),
+  cpf: z.string().optional(),
+  pis: z.string().optional(),
   isActive: z.boolean().optional(),
   password: z.string().min(6).optional(),
+  hireDate: z.string().optional(),
+  contractHours: z.number().positive().optional(),
 })
 
 router.post('/', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {

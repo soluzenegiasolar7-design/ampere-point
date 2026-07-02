@@ -19,14 +19,33 @@ async function reverseGeocode(lat: number, lon: number): Promise<string | null> 
 
 const SEQUENCE: PunchType[] = ['ENTRADA', 'SAIDA_ALMOCO', 'RETORNO_ALMOCO', 'SAIDA']
 
-// "hoje" no fuso de Recife/Fortaleza (UTC-3, sem horário de verão)
+// dia (BRT, UTC-3, sem horário de verão) contendo a data informada
 // ex: 22:12 local = 01:12 UTC do dia seguinte — tem que ser tratado como o mesmo dia
-export function brtTodayRange() {
-  const d = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Recife' }) // 'YYYY-MM-DD'
+export function brtDateRange(date: Date) {
+  const d = date.toLocaleDateString('en-CA', { timeZone: 'America/Recife' }) // 'YYYY-MM-DD'
   return {
     start:   new Date(`${d}T00:00:00-03:00`),
     end:     new Date(`${d}T23:59:59.999-03:00`),
     dateKey: new Date(`${d}T00:00:00.000Z`), // chave canônica para WorkDay.date
+  }
+}
+
+export function brtTodayRange() {
+  return brtDateRange(new Date())
+}
+
+// para campos "apenas data" (ex: TimeAdjustment.date, Absence.date), gravados como
+// meia-noite UTC do dia de calendário — NÃO é um instante real, então não pode passar
+// por brtDateRange (que converteria meia-noite UTC para o dia anterior no horário local)
+export function brtRangeForCalendarDate(date: Date) {
+  const y = date.getUTCFullYear()
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(date.getUTCDate()).padStart(2, '0')
+  const d = `${y}-${m}-${day}`
+  return {
+    start:   new Date(`${d}T00:00:00-03:00`),
+    end:     new Date(`${d}T23:59:59.999-03:00`),
+    dateKey: new Date(`${d}T00:00:00.000Z`),
   }
 }
 
@@ -126,8 +145,8 @@ export async function listAllEntriesByDate(date: string) {
   })
 }
 
-export async function recalcTotalMinutes(userId: string) {
-  const { start, end, dateKey } = brtTodayRange()
+export async function recalcTotalMinutes(userId: string, forDate: Date = new Date()) {
+  const { start, end, dateKey } = brtDateRange(forDate)
 
   const entries = await prisma.timeEntry.findMany({
     where: { userId, timestamp: { gte: start, lte: end } },
@@ -160,4 +179,29 @@ export async function nextPunchType(userId: string): Promise<PunchType | null> {
     where: { userId, timestamp: { gte: start, lte: end } },
   })
   return SEQUENCE[count] ?? null
+}
+
+export async function deleteEntry(id: string) {
+  const entry = await prisma.timeEntry.findUnique({ where: { id }, select: { id: true, userId: true, timestamp: true } })
+  if (!entry) throw new AppError('Ponto não encontrado', 404)
+  await prisma.timeEntry.delete({ where: { id } })
+  await recalcTotalMinutes(entry.userId, entry.timestamp)
+  return { ok: true }
+}
+
+export async function updateEntryTimestamp(id: string, newTimestamp: string) {
+  const entry = await prisma.timeEntry.findUnique({ where: { id }, select: { id: true, userId: true, timestamp: true } })
+  if (!entry) throw new AppError('Ponto não encontrado', 404)
+  const ts = new Date(newTimestamp)
+  if (isNaN(ts.getTime())) throw new AppError('Data/hora inválida', 400)
+  const updated = await prisma.timeEntry.update({
+    where: { id },
+    data: { timestamp: ts },
+    select: { id: true, type: true, timestamp: true, userId: true },
+  })
+  await recalcTotalMinutes(entry.userId, entry.timestamp)
+  const oldDay = entry.timestamp.toLocaleDateString('en-CA', { timeZone: 'America/Recife' })
+  const newDay = ts.toLocaleDateString('en-CA', { timeZone: 'America/Recife' })
+  if (newDay !== oldDay) await recalcTotalMinutes(entry.userId, ts)
+  return updated
 }

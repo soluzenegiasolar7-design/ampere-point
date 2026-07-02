@@ -6,13 +6,14 @@ import {
   Zap, LogOut, Map, Users, Clock, History, Radio,
   ChevronLeft, ChevronRight, Search, Download, UserPlus,
   Edit2, UserX, UserCheck, RefreshCw, MapPin, Navigation,
-  Camera, Car, FileText, Copy, CheckCircle2, AlertCircle, X
+  Camera, Car, FileText, Copy, CheckCircle2, AlertCircle, X, Briefcase
 } from 'lucide-react'
 import { useLocationStore } from '../../stores/location.store'
 import { useSocket } from '../../hooks/useSocket'
 import { api, photoUrl } from '../../services/api'
 import { useAuthStore } from '../../stores/auth.store'
 import EmployeeDayModal from './EmployeeDayModal'
+import HRPanel from './HRPanel'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { Button } from '../../components/ui/Button'
@@ -50,7 +51,7 @@ const PUNCH_BADGE_VARIANT: Record<string, 'success' | 'warning' | 'info' | 'dang
   ENTRADA: 'success', SAIDA_ALMOCO: 'warning', RETORNO_ALMOCO: 'info', SAIDA: 'danger',
 }
 
-type Tab = 'mapa' | 'funcionarios' | 'pontos' | 'historico' | 'rastreamento'
+type Tab = 'mapa' | 'funcionarios' | 'pontos' | 'historico' | 'rastreamento' | 'rh'
 type UnitFilter = 'all' | 'Natal' | 'Caruaru'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -59,6 +60,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'pontos',       label: 'Pontos',        icon: <Clock size={16} /> },
   { id: 'historico',    label: 'Histórico',     icon: <History size={16} /> },
   { id: 'rastreamento', label: 'Rastreamento',  icon: <Radio size={16} /> },
+  { id: 'rh',           label: 'RH',            icon: <Briefcase size={16} /> },
 ]
 
 function FitTrail({ trail }: { trail: [number, number][] }) {
@@ -953,6 +955,12 @@ export default function MapPage() {
         )}
 
         {/* ── RASTREAMENTO ── */}
+        {tab === 'rh' && (
+          <div className="p-4">
+            <HRPanel employees={employees} />
+          </div>
+        )}
+
         {tab === 'rastreamento' && (
           <div className="h-full overflow-y-auto p-6">
             <div className="max-w-2xl mx-auto">

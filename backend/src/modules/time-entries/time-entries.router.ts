@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { punch, listTodayEntries, listAllTodayEntries, listAllEntriesByDate, listEntriesByDate, listEntriesByRange, nextPunchType, recalcTotalMinutes } from './time-entries.service'
+import { punch, listTodayEntries, listAllTodayEntries, listAllEntriesByDate, listEntriesByDate, listEntriesByRange, nextPunchType, recalcTotalMinutes, deleteEntry, updateEntryTimestamp } from './time-entries.service'
 import { requireAuth, requireAuthPhoto, requireRole, AuthRequest } from '../auth/auth.middleware'
 import multer from 'multer'
 import { getIo } from '../../socket/io'
@@ -146,6 +146,20 @@ router.get('/user/:userId', requireRole('ADMIN', 'MANAGER'), async (req: Request
       ? await listEntriesByRange(uid, dateFrom, dateTo)
       : await listEntriesByDate(uid, date || new Date().toISOString())
     res.json(entries.map((e: any) => ({ ...e, photoData: undefined, odometerPhotoData: undefined })))
+  } catch (e) { next(e) }
+})
+
+// ── Correção direta (ADMIN/MANAGER) ──
+router.delete('/:id', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json(await deleteEntry(req.params.id as string))
+  } catch (e) { next(e) }
+})
+
+router.patch('/:id', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { timestamp } = z.object({ timestamp: z.string() }).parse(req.body)
+    res.json(await updateEntryTimestamp(req.params.id as string, timestamp))
   } catch (e) { next(e) }
 })
 

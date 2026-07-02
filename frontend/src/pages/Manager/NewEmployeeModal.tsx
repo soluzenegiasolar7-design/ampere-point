@@ -13,7 +13,7 @@ const labelCls = 'text-xs font-medium text-slate-400 block mb-1.5'
 const selectCls = 'w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-colors'
 
 export default function NewEmployeeModal({ onClose, onCreated }: Props) {
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'EMPLOYEE', unit: 'Natal', phone: '', cpf: '', pis: '' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'EMPLOYEE', unit: 'Natal', phone: '', cpf: '', pis: '', hireDate: '', contractHours: '8' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -24,7 +24,10 @@ export default function NewEmployeeModal({ onClose, onCreated }: Props) {
     try {
       await api.post('/api/users', {
         name: form.name, email: form.email, password: form.password, role: form.role,
-        unit: form.unit || undefined, phone: form.phone || undefined, cpf: form.cpf || undefined, pis: form.pis || undefined,
+        unit: form.unit || undefined, phone: form.phone || undefined,
+        cpf: form.cpf || undefined, pis: form.pis || undefined,
+        hireDate: form.hireDate || undefined,
+        contractHours: form.contractHours ? Number(form.contractHours) : undefined,
       })
       onCreated(); onClose()
     } catch (err: any) {
@@ -61,6 +64,10 @@ export default function NewEmployeeModal({ onClose, onCreated }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <Input label="CPF" placeholder="000.000.000-00" value={form.cpf} onChange={e => set('cpf', e.target.value)} />
             <Input label="PIS" placeholder="000.00000.00-0" value={form.pis} onChange={e => set('pis', e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Data de contratação" type="date" value={form.hireDate} onChange={e => set('hireDate', e.target.value)} />
+            <Input label="Horas/dia (contrato)" type="number" min="1" max="12" step="0.5" placeholder="8" value={form.contractHours} onChange={e => set('contractHours', e.target.value)} />
           </div>
           <div className="flex gap-3 mt-1">
             <Button type="button" variant="ghost" fullWidth onClick={onClose}>Cancelar</Button>

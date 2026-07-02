@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Zap, LogOut, Clock, CheckCircle2, Navigation,
-  Camera, Car, AlertCircle, ChevronRight, RefreshCw, X
+  Camera, Car, AlertCircle, ChevronRight, RefreshCw, X,
+  ChevronDown, FileText, Download, Sliders, TrendingUp
 } from 'lucide-react'
 import { api, photoUrl } from '../../services/api'
 import { useAuthStore } from '../../stores/auth.store'
@@ -28,6 +29,8 @@ const PUNCH_BADGE: Record<PunchType, { label: string; variant: 'success' | 'warn
   RETORNO_ALMOCO: { label: 'Retorno Almoço', variant: 'info' },
   SAIDA:          { label: 'Saída',          variant: 'danger' },
 }
+
+const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 function useRealtimeClock() {
   const [time, setTime] = useState(new Date())
@@ -92,6 +95,13 @@ export default function PunchPage() {
   const [dataLoading, setDataLoading] = useState(true)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
 
+  const [meusDadosOpen, setMeusDadosOpen] = useState(false)
+  const [payslips, setPayslips] = useState<any[]>([])
+  const [hourBank, setHourBank] = useState<any>(null)
+  const [hrLoading, setHrLoading] = useState(false)
+  const [adjustForm, setAdjustForm] = useState({ date: '', punchType: 'ENTRADA', requestedTime: '', reason: '' })
+  const [adjustLoading, setAdjustLoading] = useState(false)
+
   // odômetro
   const [odoKm, setOdoKm] = useState('')
   const [odoPhotoBlob, setOdoPhotoBlob] = useState<Blob | null>(null)
@@ -132,6 +142,22 @@ export default function PunchPage() {
   }, [])
 
   useEffect(() => { loadData() }, [loadData])
+
+  const loadHRData = useCallback(async () => {
+    setHrLoading(true)
+    try {
+      const [payslipsRes, hourBankRes] = await Promise.all([
+        api.get('/api/payslips/my'),
+        api.get('/api/hour-bank/my'),
+      ])
+      setPayslips(payslipsRes.data)
+      setHourBank(hourBankRes.data)
+    } catch {
+      // silent — toast only if user explicitly retries
+    } finally {
+      setHrLoading(false)
+    }
+  }, [])
 
   const prePunchOdo = useRef(false)
 
@@ -240,6 +266,43 @@ export default function PunchPage() {
     selfie.stop()
     odo.stop()
     setStep('idle')
+  }
+
+  const downloadPayslip = async (id: string, fileName: string) => {
+    try {
+      const res = await api.get(`/api/payslips/${id}/file`, { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = fileName || `holerite-${id}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      showToast('error', 'Erro ao baixar holerite')
+    }
+  }
+
+  const submitAdjustment = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (adjustForm.reason.length < 10) {
+      showToast('error', 'Motivo deve ter pelo menos 10 caracteres')
+      return
+    }
+    setAdjustLoading(true)
+    try {
+      await api.post('/api/time-adjustments', {
+        date: adjustForm.date,
+        punchType: adjustForm.punchType,
+        requestedTime: adjustForm.requestedTime,
+        reason: adjustForm.reason,
+      })
+      showToast('success', 'Solicitação de ajuste enviada!')
+      setAdjustForm({ date: '', punchType: 'ENTRADA', requestedTime: '', reason: '' })
+    } catch (err: any) {
+      showToast('error', err.response?.data?.error || 'Erro ao enviar solicitação')
+    } finally {
+      setAdjustLoading(false)
+    }
   }
 
   const fmt = (ts: string) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -394,6 +457,135 @@ export default function PunchPage() {
                   <span className="text-emerald-400 font-mono font-bold text-sm tabular-nums">{fmt(e.timestamp)}</span>
                 </div>
               ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Meus Dados */}
+        <Card className="p-4">
+          <button
+            onClick={() => { const opening = !meusDadosOpen; setMeusDadosOpen(opening); if (opening) loadHRData() }}
+            className="w-full flex items-center justify-between"
+          >
+            <span className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+              <FileText size={15} className="text-amber-400" /> Meus Dados
+            </span>
+            <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${meusDadosOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {meusDadosOpen && (
+            <div className="mt-4 space-y-5">
+              {hrLoading ? (
+                <div className="flex justify-center py-4">
+                  <Spinner size="lg" className="text-amber-500" />
+                </div>
+              ) : (
+                <>
+                  {/* Banco de Horas */}
+                  {hourBank && (
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                        <TrendingUp size={13} /> Banco de Horas (mês atual)
+                      </p>
+                      <div className="bg-slate-800 rounded-xl px-4 py-3 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-slate-500">Trabalhado</p>
+                          <p className="text-white font-bold text-sm">{hourBank.totalWorkedHours}h</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-slate-500">Esperado</p>
+                          <p className="text-white font-bold text-sm">{hourBank.totalExpectedHours}h</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-slate-500">Saldo</p>
+                          <p className={`text-xl font-bold ${hourBank.balanceHours >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {hourBank.balanceLabel}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Holerites */}
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                      <FileText size={13} /> Holerites
+                    </p>
+                    {payslips.length === 0 ? (
+                      <p className="text-slate-600 text-sm text-center py-2">Nenhum holerite disponível</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {payslips.map((p: any) => (
+                          <div key={p.id} className="flex items-center justify-between bg-slate-800 rounded-xl px-4 py-3">
+                            <span className="text-sm text-slate-300">{MONTHS[p.month - 1]} / {p.year}</span>
+                            <button
+                              onClick={() => downloadPayslip(p.id, p.fileName)}
+                              className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+                            >
+                              <Download size={13} /> Baixar
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Ajuste de Ponto */}
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                      <Sliders size={13} /> Solicitar Ajuste de Ponto
+                    </p>
+                    <form onSubmit={submitAdjustment} className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs text-slate-400 block mb-1.5">Data *</label>
+                          <input
+                            type="date" required
+                            value={adjustForm.date}
+                            onChange={e => setAdjustForm(f => ({ ...f, date: e.target.value }))}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 block mb-1.5">Tipo *</label>
+                          <select
+                            value={adjustForm.punchType}
+                            onChange={e => setAdjustForm(f => ({ ...f, punchType: e.target.value }))}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-colors"
+                          >
+                            <option value="ENTRADA">Entrada</option>
+                            <option value="SAIDA_ALMOCO">Saída Almoço</option>
+                            <option value="RETORNO_ALMOCO">Retorno Almoço</option>
+                            <option value="SAIDA">Saída</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1.5">Horário correto *</label>
+                        <input
+                          type="time" required
+                          value={adjustForm.requestedTime}
+                          onChange={e => setAdjustForm(f => ({ ...f, requestedTime: e.target.value }))}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1.5">Motivo * <span className="text-slate-600">(mín. 10 caracteres)</span></label>
+                        <textarea
+                          required minLength={10} rows={2}
+                          value={adjustForm.reason}
+                          onChange={e => setAdjustForm(f => ({ ...f, reason: e.target.value }))}
+                          placeholder="Descreva o motivo do ajuste..."
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-colors resize-none placeholder-slate-600"
+                        />
+                      </div>
+                      <Button type="submit" fullWidth loading={adjustLoading} size="sm">
+                        <Sliders size={14} /> Enviar Solicitação
+                      </Button>
+                    </form>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </Card>
