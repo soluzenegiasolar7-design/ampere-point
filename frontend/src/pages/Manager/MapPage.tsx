@@ -343,19 +343,37 @@ export default function MapPage() {
         await new Promise(r => setTimeout(r, 1100))
       }
 
-      const photoMap: Record<string, string> = {}
-      await Promise.all(histPunches.map(async (p: any) => {
-        if (!p.photoUrl) return
+      const fetchPhotoB64 = async (url: string): Promise<string | null> => {
         try {
-          const res = await api.get(p.photoUrl, { responseType: 'blob' })
-          const b64 = await new Promise<string>((resolve, reject) => {
+          const res = await api.get(url, { responseType: 'blob' })
+          return await new Promise<string>((resolve, reject) => {
             const reader = new FileReader()
             reader.onloadend = () => resolve(reader.result as string)
             reader.onerror = reject
             reader.readAsDataURL(res.data)
           })
-          photoMap[p.id] = b64
-        } catch { /* skip */ }
+        } catch { return null }
+      }
+
+      const photoMap: Record<string, string> = {}
+      await Promise.all(histPunches.map(async (p: any) => {
+        if (!p.photoUrl) return
+        const b64 = await fetchPhotoB64(p.photoUrl)
+        if (b64) photoMap[p.id] = b64
+      }))
+
+      const dailyOdometer: any[] = histSummary.dailyOdometer ?? []
+      const odoEntradaPhotoMap: Record<number, string> = {}
+      const odoSaidaPhotoMap: Record<number, string> = {}
+      await Promise.all(dailyOdometer.map(async (d, i) => {
+        if (d.odometerPhotoUrlEntrada) {
+          const b64 = await fetchPhotoB64(d.odometerPhotoUrlEntrada)
+          if (b64) odoEntradaPhotoMap[i] = b64
+        }
+        if (d.odometerPhotoUrl) {
+          const b64 = await fetchPhotoB64(d.odometerPhotoUrl)
+          if (b64) odoSaidaPhotoMap[i] = b64
+        }
       }))
 
       const doc = new jsPDF({ format: 'a4', unit: 'mm' })
@@ -382,20 +400,20 @@ export default function MapPage() {
         const dt = new Date(p.timestamp)
         return [
           `${dt.toLocaleDateString('pt-BR')} ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`,
-          LABELS[p.type] ?? p.type, addressMap[p.id] ?? '-', p.odometerKm != null ? `${p.odometerKm} km` : '-', '',
+          LABELS[p.type] ?? p.type, addressMap[p.id] ?? '-', '',
         ]
       })
 
       autoTable(doc, {
         startY: 56, margin: { top: 56, left: 14, right: 14 },
-        head: [['Data do Ponto', 'Tipo', 'Localizacao', 'KM Tac.', 'Foto']],
+        head: [['Data do Ponto', 'Tipo', 'Localizacao', 'Foto']],
         body: rows,
         headStyles: { fillColor: [245, 245, 245], textColor: [40, 40, 40], fontStyle: 'bold', lineWidth: 0.3, lineColor: [200, 200, 200], fontSize: 8.5 },
         bodyStyles: { minCellHeight: 28, valign: 'middle', lineWidth: 0.2, lineColor: [220, 220, 220], fontSize: 8, textColor: [50, 50, 50] },
         alternateRowStyles: { fillColor: [250, 250, 250] },
-        columnStyles: { 0: { cellWidth: 36 }, 1: { cellWidth: 26 }, 2: { cellWidth: 70 }, 3: { cellWidth: 18 }, 4: { cellWidth: 27 } },
+        columnStyles: { 0: { cellWidth: 36 }, 1: { cellWidth: 26 }, 2: { cellWidth: 88 }, 3: { cellWidth: 27 } },
         didDrawCell: (data) => {
-          if (data.section === 'body' && data.column.index === 4) {
+          if (data.section === 'body' && data.column.index === 3) {
             const p = histPunches[data.row.index]
             const img = photoMap[p?.id]
             if (img) {
@@ -407,10 +425,48 @@ export default function MapPage() {
         didDrawPage: (data) => { if (data.pageNumber > 1) drawHeader() },
       })
 
+      // ── Quilometragem por dia (odômetro entrada/saída + deslocamento real) ──
+      if (dailyOdometer.some(d => d.odometerKmEntrada != null || d.odometerKm != null)) {
+        const odoY = (doc as any).lastAutoTable.finalY + 8
+        doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(40, 40, 40)
+        doc.text('Quilometragem por dia (odometro)', 14, odoY)
+
+        const odoRows = dailyOdometer.map((d: any) => {
+          const dt = new Date(d.date)
+          return [
+            dt.toLocaleDateString('pt-BR'),
+            d.odometerKmEntrada != null ? `${d.odometerKmEntrada} km` : '-', '',
+            d.odometerKm != null ? `${d.odometerKm} km` : '-', '',
+            d.displacementKm != null ? `${d.displacementKm.toFixed(1)} km` : '-',
+          ]
+        })
+
+        autoTable(doc, {
+          startY: odoY + 4, margin: { top: 56, left: 14, right: 14 },
+          head: [['Data', 'KM Entrada', 'Foto', 'KM Saida', 'Foto', 'Deslocamento']],
+          body: odoRows,
+          headStyles: { fillColor: [245, 245, 245], textColor: [40, 40, 40], fontStyle: 'bold', lineWidth: 0.3, lineColor: [200, 200, 200], fontSize: 8.5 },
+          bodyStyles: { minCellHeight: 28, valign: 'middle', halign: 'center', lineWidth: 0.2, lineColor: [220, 220, 220], fontSize: 8, textColor: [50, 50, 50] },
+          alternateRowStyles: { fillColor: [250, 250, 250] },
+          columnStyles: { 0: { cellWidth: 26 }, 1: { cellWidth: 24 }, 2: { cellWidth: 24 }, 3: { cellWidth: 24 }, 4: { cellWidth: 24 }, 5: { cellWidth: 27 } },
+          didDrawCell: (data) => {
+            if (data.section !== 'body') return
+            const img = data.column.index === 2 ? odoEntradaPhotoMap[data.row.index]
+              : data.column.index === 4 ? odoSaidaPhotoMap[data.row.index]
+              : null
+            if (img) {
+              const s = Math.min(data.cell.height - 4, 23)
+              doc.addImage(img, 'JPEG', data.cell.x + (data.cell.width - s) / 2, data.cell.y + (data.cell.height - s) / 2, s, s)
+            }
+          },
+          didDrawPage: (data) => { if (data.pageNumber > 1) drawHeader() },
+        })
+      }
+
       const resumoY = (doc as any).lastAutoTable.finalY + 8
       autoTable(doc, {
         startY: resumoY,
-        head: [['KM por GPS', 'KM Tacometro', 'Horas Trabalhadas', 'Dias Trabalhados', 'Horas Extras']],
+        head: [['KM por GPS', 'KM Tacometro (mes)', 'Horas Trabalhadas', 'Dias Trabalhados', 'Horas Extras']],
         body: [[`${histSummary.gpsKm.toFixed(1)} km`, histSummary.odometerKm > 0 ? `${histSummary.odometerKm.toFixed(1)} km` : '-', fmtMin(histSummary.totalMinutes), String(histSummary.workDays), extraMin > 0 ? fmtMin(extraMin) : '-']],
         headStyles: { fillColor: [245, 245, 245], textColor: [40, 40, 40], fontStyle: 'bold', lineWidth: 0.3, lineColor: [200, 200, 200], fontSize: 8.5 },
         bodyStyles: { halign: 'center', lineWidth: 0.2, lineColor: [220, 220, 220], fontSize: 9 },

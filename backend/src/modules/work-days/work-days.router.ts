@@ -213,18 +213,38 @@ router.get('/summary/:userId', requireRole('ADMIN', 'MANAGER'), async (req: Requ
 
     const days = await prisma.workDay.findMany({
       where: { userId: uid, date: { gte: start, lte: end } },
-      select: { totalKm: true, odometerKm: true, totalMinutes: true, date: true },
+      select: {
+        totalKm: true, totalMinutes: true, date: true,
+        odometerKm: true, odometerPhotoUrl: true,
+        odometerKmEntrada: true, odometerPhotoUrlEntrada: true,
+      },
+      orderBy: { date: 'asc' },
     })
+
+    // deslocamento real do dia = odômetro da saída - odômetro da entrada (só quando os dois existem)
+    const displacement = (d: typeof days[number]) =>
+      d.odometerKmEntrada != null && d.odometerKm != null
+        ? Math.max(0, d.odometerKm - d.odometerKmEntrada)
+        : null
 
     // só contabiliza dias onde o funcionário efetivamente trabalhou (totalMinutes > 0)
     const workedDays = days.filter(d => (d.totalMinutes ?? 0) > 0)
 
     const gpsKm      = workedDays.reduce((s, d) => s + (d.totalKm ?? 0), 0)
-    const odometerKm = workedDays.reduce((s, d) => s + (d.odometerKm ?? 0), 0)
+    const odometerKm = workedDays.reduce((s, d) => s + (displacement(d) ?? 0), 0)
     const totalMin   = workedDays.reduce((s, d) => s + (d.totalMinutes ?? 0), 0)
     const workDays   = workedDays.length
 
-    res.json({ gpsKm, odometerKm, totalMinutes: totalMin, workDays })
+    const dailyOdometer = days.map(d => ({
+      date: d.date,
+      odometerKmEntrada: d.odometerKmEntrada,
+      odometerKm: d.odometerKm,
+      odometerPhotoUrlEntrada: d.odometerPhotoUrlEntrada,
+      odometerPhotoUrl: d.odometerPhotoUrl,
+      displacementKm: displacement(d),
+    }))
+
+    res.json({ gpsKm, odometerKm, totalMinutes: totalMin, workDays, dailyOdometer })
   } catch (e) { next(e) }
 })
 
