@@ -200,6 +200,7 @@ export default function MapPage() {
       for (const entry of p.data) {
         const uid = entry.user?.id ?? entry.userId
         if (!uid || seen.has(uid)) continue
+        if (entry.latitude == null || entry.longitude == null) continue
         seen.add(uid)
         useLocationStore.getState().updateLocation(uid, { latitude: entry.latitude, longitude: entry.longitude, accuracy: entry.accuracy, timestamp: entry.timestamp })
       }
@@ -818,10 +819,16 @@ export default function MapPage() {
                         <Badge variant={PUNCH_BADGE_VARIANT[punch.type] ?? 'default'}>{PUNCH_LABELS[punch.type] ?? punch.type}</Badge>
                         <span className="text-xs text-slate-500 tabular-nums">{fmtTime(punch.timestamp)}</span>
                       </div>
-                      <a href={`https://www.google.com/maps?q=${punch.latitude},${punch.longitude}`} target="_blank" rel="noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-slate-800 px-2.5 py-1.5 rounded-lg transition-colors">
-                        <MapPin size={12} /> Ver localização
-                      </a>
+                      {punch.latitude != null && punch.longitude != null ? (
+                        <a href={`https://www.google.com/maps?q=${punch.latitude},${punch.longitude}`} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-slate-800 px-2.5 py-1.5 rounded-lg transition-colors">
+                          <MapPin size={12} /> Ver localização
+                        </a>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-xs text-slate-600">
+                          <MapPin size={12} className="opacity-40" /> Sem localização (ponto manual)
+                        </span>
+                      )}
                     </div>
                   </Card>
                 ))}
@@ -909,10 +916,16 @@ export default function MapPage() {
                             {punch.odometerKm != null && (
                               <p className="text-xs text-amber-400 mb-1 flex items-center gap-1"><Car size={11} /> {punch.odometerKm} km</p>
                             )}
-                            <a href={`https://www.google.com/maps?q=${punch.latitude},${punch.longitude}`} target="_blank" rel="noreferrer"
-                              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
-                              <MapPin size={11} /> Ver no Maps
-                            </a>
+                            {punch.latitude != null && punch.longitude != null ? (
+                              <a href={`https://www.google.com/maps?q=${punch.latitude},${punch.longitude}`} target="_blank" rel="noreferrer"
+                                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
+                                <MapPin size={11} /> Ver no Maps
+                              </a>
+                            ) : (
+                              <span className="text-xs text-slate-600 flex items-center gap-1">
+                                <MapPin size={11} className="opacity-40" /> Sem localização (ponto manual)
+                              </span>
+                            )}
                           </div>
                         </Card>
                       ))}
@@ -933,7 +946,7 @@ export default function MapPage() {
                     <Marker position={histTrail[histTrail.length - 1]} icon={grayIcon}><Popup>Fim</Popup></Marker>
                   </>
                 )}
-                {histPunches.map((punch: any) => (
+                {histPunches.filter((punch: any) => punch.latitude != null && punch.longitude != null).map((punch: any) => (
                   <Marker key={punch.id} position={[punch.latitude, punch.longitude]}>
                     <Popup>
                       <p className="font-bold text-sm">{PUNCH_LABELS[punch.type]}</p>

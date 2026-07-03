@@ -159,16 +159,18 @@ export default function PunchPage() {
     }
   }, [])
 
-  const prePunchOdo = useRef(false)
+  const [odoPhase, setOdoPhase] = useState<'entrada' | 'saida'>('saida')
+  const isPrePunchOdo = useRef(false)
 
   // ── SELFIE FLOW ──
   const handlePunchClick = async () => {
-    if (nextPunch === 'SAIDA') {
-      prePunchOdo.current = true
+    if (nextPunch === 'SAIDA' || nextPunch === 'ENTRADA') {
+      isPrePunchOdo.current = true
+      setOdoPhase(nextPunch === 'ENTRADA' ? 'entrada' : 'saida')
       setOdoKm(''); setOdoPhotoBlob(null)
       setStep('odo-form')
     } else {
-      prePunchOdo.current = false
+      isPrePunchOdo.current = false
       setStep('selfie')
       await selfie.start()
     }
@@ -208,14 +210,15 @@ export default function PunchPage() {
 
       await api.post('/api/time-entries', form)
 
-      if (prePunchOdo.current && odoKm) {
+      if (isPrePunchOdo.current && odoKm) {
         const odoForm = new FormData()
         odoForm.append('odometerKm', odoKm)
+        odoForm.append('phase', odoPhase)
         if (odoPhotoBlob) odoForm.append('odometerPhoto', odoPhotoBlob, 'odometer.jpg')
         await api.patch('/api/work-days/today/odometer', odoForm).catch(() => {})
       }
 
-      prePunchOdo.current = false
+      isPrePunchOdo.current = false
       await loadData()
       showToast('success', `${PUNCH_CONFIG[nextPunch!]?.label} registrado!`)
       setStep('idle')
@@ -250,6 +253,7 @@ export default function PunchPage() {
     try {
       const form = new FormData()
       form.append('odometerKm', odoKm)
+      form.append('phase', odoPhase)
       if (odoPhotoBlob) form.append('odometerPhoto', odoPhotoBlob, 'odometer.jpg')
       await api.patch('/api/work-days/today/odometer', form)
       showToast('success', 'Quilometragem registrada com sucesso!')
@@ -400,40 +404,48 @@ export default function PunchPage() {
         {/* Card odômetro */}
         {entries.length > 0 && (
           <Card className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Car size={16} className="text-amber-400" />
-                <span className="text-sm font-semibold text-slate-200">Quilometragem do dia</span>
-              </div>
-              {workDay?.odometerKm != null && (
-                <Badge variant="success"><CheckCircle2 size={11} /> Registrado</Badge>
-              )}
+            <div className="flex items-center gap-2 mb-3">
+              <Car size={16} className="text-amber-400" />
+              <span className="text-sm font-semibold text-slate-200">Quilometragem do dia</span>
             </div>
 
-            {workDay?.odometerKm != null ? (
-              <>
-                <div className="bg-slate-800 rounded-xl p-3 text-center mb-3">
-                  <p className="text-purple-400 font-bold text-2xl">{Number(workDay.odometerKm).toFixed(0)} km</p>
-                  <p className="text-slate-500 text-xs mt-0.5">Informado</p>
-                </div>
-                {workDay.odometerPhotoUrl && (
-                  <img src={photoUrl(workDay.odometerPhotoUrl)} alt="Odômetro" className="w-full rounded-xl object-cover max-h-28 mb-3" />
-                )}
-                <button
-                  onClick={() => { setOdoKm(String(workDay.odometerKm)); setOdoPhotoBlob(null); setStep('odo-form') }}
-                  className="w-full py-2 text-xs text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
-                >
-                  Atualizar quilometragem
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => { setOdoKm(''); setOdoPhotoBlob(null); setStep('odo-form') }}
-                className="w-full py-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 border-dashed rounded-xl text-slate-400 hover:text-white transition-colors text-sm flex items-center justify-center gap-2"
-              >
-                <Camera size={16} /> Registrar quilometragem
-              </button>
-            )}
+            <div className="grid grid-cols-2 gap-3">
+              {(['entrada', 'saida'] as const).map(phase => {
+                const km = phase === 'entrada' ? workDay?.odometerKmEntrada : workDay?.odometerKm
+                const photo = phase === 'entrada' ? workDay?.odometerPhotoUrlEntrada : workDay?.odometerPhotoUrl
+                return (
+                  <div key={phase}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-slate-500 uppercase tracking-wide">{phase === 'entrada' ? 'Entrada' : 'Saída'}</span>
+                      {km != null && <Badge variant="success"><CheckCircle2 size={10} /></Badge>}
+                    </div>
+                    {km != null ? (
+                      <>
+                        <div className="bg-slate-800 rounded-xl p-3 text-center mb-2">
+                          <p className="text-purple-400 font-bold text-xl">{Number(km).toFixed(0)} km</p>
+                        </div>
+                        {photo && (
+                          <img src={photoUrl(photo)} alt={`Odômetro ${phase}`} className="w-full rounded-xl object-cover max-h-20 mb-2" />
+                        )}
+                        <button
+                          onClick={() => { setOdoPhase(phase); isPrePunchOdo.current = false; setOdoKm(String(km)); setOdoPhotoBlob(null); setStep('odo-form') }}
+                          className="w-full py-2 text-xs text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+                        >
+                          Atualizar
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => { setOdoPhase(phase); isPrePunchOdo.current = false; setOdoKm(''); setOdoPhotoBlob(null); setStep('odo-form') }}
+                        className="w-full py-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 border-dashed rounded-xl text-slate-400 hover:text-white transition-colors text-xs flex flex-col items-center justify-center gap-1"
+                      >
+                        <Camera size={14} /> Registrar
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </Card>
         )}
 
@@ -641,13 +653,14 @@ export default function PunchPage() {
             <div>
               <p className="text-white font-bold flex items-center gap-2">
                 <Car size={18} className="text-amber-400" />
-                Quilometragem do dia
-                {prePunchOdo.current && <span className="text-amber-500/70 font-normal text-sm">— Passo 1 de 2</span>}
+                Quilometragem na {odoPhase === 'entrada' ? 'entrada' : 'saída'}
+                {isPrePunchOdo.current && <span className="text-amber-500/70 font-normal text-sm">— Passo 1 de 2</span>}
               </p>
-              {prePunchOdo.current
-                ? <p className="text-amber-500/80 text-xs mt-0.5">Informe os km antes de registrar a saída</p>
-                : !workDay?.odometerKm && <p className="text-amber-500/80 text-xs mt-0.5">Necessário para encerrar a saída</p>
-              }
+              {isPrePunchOdo.current && (
+                <p className="text-amber-500/80 text-xs mt-0.5">
+                  Informe os km antes de registrar {odoPhase === 'entrada' ? 'a entrada' : 'a saída'}
+                </p>
+              )}
             </div>
             <button onClick={cancelFlow} className="p-2 rounded-full hover:bg-slate-700 text-slate-400 transition-colors"><X size={18} /></button>
           </div>
@@ -660,7 +673,9 @@ export default function PunchPage() {
             )}
 
             <div>
-              <label className="text-sm font-medium text-slate-400 block mb-2">Km rodados hoje *</label>
+              <label className="text-sm font-medium text-slate-400 block mb-2">
+                Km {odoPhase === 'entrada' ? 'no início do dia' : 'no fim do dia'} *
+              </label>
               <input
                 type="number" inputMode="decimal" placeholder="Ex: 120"
                 value={odoKm} onChange={e => setOdoKm(e.target.value)}
@@ -683,7 +698,7 @@ export default function PunchPage() {
               )}
             </div>
 
-            {prePunchOdo.current ? (
+            {isPrePunchOdo.current ? (
               <Button fullWidth size="lg" onClick={continueToSelfie} className="mt-auto">
                 <Camera size={18} />
                 Continuar para selfie →

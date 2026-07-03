@@ -67,23 +67,23 @@ model User {
 }
 
 model TimeEntry {
-  id                 String    @id @default(uuid())
-  userId             String
-  user               User      @relation(fields: [userId], references: [id])
-  type               PunchType
-  timestamp          DateTime  @default(now())
-  latitude           Float
-  longitude          Float
-  accuracy           Float?
-  photoUrl           String?
-  photoData          Bytes?
-  address            String?
-  ipAddress          String?
-  deviceInfo         String?
-  odometerKm         Float?
-  odometerPhotoData  Bytes?
-  odometerPhotoUrl   String?
-  createdAt          DateTime  @default(now())
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  type              PunchType
+  timestamp         DateTime  @default(now())
+  latitude          Float?
+  longitude         Float?
+  accuracy          Float?
+  photoUrl          String?
+  photoData         Bytes?
+  address           String?
+  ipAddress         String?
+  deviceInfo        String?
+  odometerKm        Float?
+  odometerPhotoData Bytes?
+  odometerPhotoUrl  String?
+  createdAt         DateTime  @default(now())
 
   @@index([userId, timestamp])
   @@map("time_entries")
@@ -104,33 +104,36 @@ model GpsLog {
 }
 
 model WorkDay {
-  id                 String     @id @default(uuid())
-  userId             String
-  user               User       @relation(fields: [userId], references: [id])
-  date               DateTime
-  totalKm            Float      @default(0)
-  totalMinutes       Int        @default(0)
-  status             WorkStatus @default(PENDENTE)
-  odometerKm         Float?
-  odometerPhotoData  Bytes?
-  odometerPhotoUrl   String?
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  id                       String     @id @default(uuid())
+  userId                   String
+  user                     User       @relation(fields: [userId], references: [id])
+  date                     DateTime
+  totalKm                  Float      @default(0)
+  totalMinutes             Int        @default(0)
+  status                   WorkStatus @default(PENDENTE)
+  odometerKm               Float?
+  odometerPhotoData        Bytes?
+  odometerPhotoUrl         String?
+  odometerKmEntrada        Float?
+  odometerPhotoDataEntrada Bytes?
+  odometerPhotoUrlEntrada  String?
+  createdAt                DateTime   @default(now())
+  updatedAt                DateTime   @updatedAt
 
   @@unique([userId, date])
   @@map("work_days")
 }
 
 model Payslip {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  month       Int
-  year        Int
-  fileName    String
-  fileData    Bytes
-  uploadedBy  String
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  month      Int
+  year       Int
+  fileName   String
+  fileData   Bytes
+  uploadedBy String
+  createdAt  DateTime @default(now())
 
   @@unique([userId, month, year])
   @@map("payslips")
@@ -155,52 +158,52 @@ model TimeAdjustment {
 }
 
 model Absence {
-  id              String        @id @default(uuid())
-  userId          String
-  user            User          @relation(fields: [userId], references: [id])
-  date            DateTime
-  type            AbsenceType   @default(FALTA)
-  reason          String?
-  attachmentData  Bytes?
-  attachmentName  String?
-  status          RequestStatus @default(PENDING)
-  reviewedBy      String?
-  reviewedAt      DateTime?
-  reviewNote      String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  date           DateTime
+  type           AbsenceType   @default(FALTA)
+  reason         String?
+  attachmentData Bytes?
+  attachmentName String?
+  status         RequestStatus @default(PENDING)
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  reviewNote     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@unique([userId, date])
   @@map("absences")
 }
 
 model Vacation {
-  id          String        @id @default(uuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id])
-  startDate   DateTime
-  endDate     DateTime
-  notes       String?
-  status      RequestStatus @default(PENDING)
-  reviewedBy  String?
-  reviewedAt  DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id         String        @id @default(uuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  startDate  DateTime
+  endDate    DateTime
+  notes      String?
+  status     RequestStatus @default(PENDING)
+  reviewedBy String?
+  reviewedAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   @@map("vacations")
 }
 
 model DayOff {
-  id          String        @id @default(uuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id])
-  date        DateTime
-  reason      String?
-  status      RequestStatus @default(PENDING)
-  reviewedBy  String?
-  reviewedAt  DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id         String        @id @default(uuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  date       DateTime
+  reason     String?
+  status     RequestStatus @default(PENDING)
+  reviewedBy String?
+  reviewedAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   @@unique([userId, date])
   @@map("day_offs")

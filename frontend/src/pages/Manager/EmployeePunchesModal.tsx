@@ -78,11 +78,17 @@ export default function EmployeePunchesModal({ employee, onClose }: Props) {
               )}
               <div className="px-4 pb-3">
                 {entry.address && <p className="text-xs text-slate-400 mb-1.5 flex items-center gap-1"><MapPin size={11} /> {entry.address}</p>}
-                <a href={`https://www.google.com/maps?q=${entry.latitude},${entry.longitude}`} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-slate-700/50 px-3 py-1.5 rounded-lg transition-colors">
-                  <MapPin size={12} /> Ver no Google Maps
-                  <span className="text-slate-600">({entry.latitude.toFixed(4)}, {entry.longitude.toFixed(4)})</span>
-                </a>
+                {entry.latitude != null && entry.longitude != null ? (
+                  <a href={`https://www.google.com/maps?q=${entry.latitude},${entry.longitude}`} target="_blank" rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-slate-700/50 px-3 py-1.5 rounded-lg transition-colors">
+                    <MapPin size={12} /> Ver no Google Maps
+                    <span className="text-slate-600">({entry.latitude.toFixed(4)}, {entry.longitude.toFixed(4)})</span>
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+                    <MapPin size={12} className="opacity-40" /> Sem localização (ponto criado manualmente)
+                  </span>
+                )}
               </div>
             </div>
           ))}

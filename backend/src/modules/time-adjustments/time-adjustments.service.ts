@@ -37,8 +37,20 @@ export async function reviewAdjustment(id: string, reviewedBy: string, status: R
     const entry = await prisma.timeEntry.findFirst({
       where: { userId: adj.userId, type: adj.punchType, timestamp: { gte: start, lte: end } },
     })
-    if (!entry) throw new AppError('Nenhum ponto correspondente encontrado nesse dia para aplicar o ajuste', 404)
-    await prisma.timeEntry.update({ where: { id: entry.id }, data: { timestamp: adj.requestedTime } })
+    if (entry) {
+      await prisma.timeEntry.update({ where: { id: entry.id }, data: { timestamp: adj.requestedTime } })
+    } else {
+      // funcionário esqueceu de bater esse ponto — cria um novo, sem GPS real
+      // (foi aprovado manualmente pelo gestor, não veio de um dispositivo no local)
+      await prisma.timeEntry.create({
+        data: {
+          userId: adj.userId,
+          type: adj.punchType,
+          timestamp: adj.requestedTime,
+          address: 'Ponto criado manualmente via ajuste aprovado',
+        },
+      })
+    }
     await recalcTotalMinutes(adj.userId, start)
   }
 
