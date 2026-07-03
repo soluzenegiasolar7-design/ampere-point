@@ -446,6 +446,15 @@ export default function PunchPage() {
                 )
               })}
             </div>
+
+            {workDay?.odometerKmEntrada != null && workDay?.odometerKm != null && (
+              <div className="mt-3 bg-slate-800 rounded-xl px-4 py-3 flex items-center justify-between">
+                <span className="text-xs text-slate-500 uppercase tracking-wide">Km rodados no dia</span>
+                <span className="text-amber-400 font-bold text-lg">
+                  {Math.max(0, Number(workDay.odometerKm) - Number(workDay.odometerKmEntrada)).toFixed(0)} km
+                </span>
+              </div>
+            )}
           </Card>
         )}
 
