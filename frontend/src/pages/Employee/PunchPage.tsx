@@ -14,7 +14,7 @@ import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
 
 type PunchType = 'ENTRADA' | 'SAIDA_ALMOCO' | 'RETORNO_ALMOCO' | 'SAIDA'
-type Step = 'idle' | 'selfie' | 'odo-form' | 'odo-camera'
+type Step = 'idle' | 'selfie' | 'odo-form' | 'odo-camera' | 'odo-review'
 type OdoPhase = 'entrada' | 'saida_almoco' | 'retorno_almoco' | 'saida'
 
 const PUNCH_TO_ODO_PHASE: Record<PunchType, OdoPhase> = {
@@ -128,6 +128,15 @@ export default function PunchPage() {
   const [odoKm, setOdoKm] = useState('')
   const [odoPhotoBlob, setOdoPhotoBlob] = useState<Blob | null>(null)
   const [odoLoading, setOdoLoading] = useState(false)
+  const [pendingOdoBlob, setPendingOdoBlob] = useState<Blob | null>(null)
+  const [pendingOdoUrl, setPendingOdoUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!pendingOdoBlob) { setPendingOdoUrl(null); return }
+    const url = URL.createObjectURL(pendingOdoBlob)
+    setPendingOdoUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [pendingOdoBlob])
 
   const selfie = useCamera('user')
   const odo = useCamera('environment')
@@ -256,7 +265,19 @@ export default function PunchPage() {
   const captureOdoPhoto = async () => {
     const blob = await odo.capture()
     odo.stop()
-    setOdoPhotoBlob(blob)
+    setPendingOdoBlob(blob)
+    setStep('odo-review')
+  }
+
+  const retakeOdoPhoto = async () => {
+    setPendingOdoBlob(null)
+    setStep('odo-camera')
+    await odo.start()
+  }
+
+  const confirmOdoPhoto = () => {
+    setOdoPhotoBlob(pendingOdoBlob)
+    setPendingOdoBlob(null)
     setStep('odo-form')
   }
 
@@ -285,6 +306,7 @@ export default function PunchPage() {
   const cancelFlow = () => {
     selfie.stop()
     odo.stop()
+    setPendingOdoBlob(null)
     setStep('idle')
   }
 
@@ -769,6 +791,34 @@ export default function PunchPage() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── MODAL REVISÃO DA FOTO DO ODÔMETRO ── */}
+      {step === 'odo-review' && (
+        <div className="fixed inset-0 bg-black z-50 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 bg-black/80">
+            <p className="text-white font-semibold text-sm">Confira a foto do odômetro</p>
+            <button onClick={cancelFlow} className="p-2 rounded-full hover:bg-white/10 text-white transition-colors"><X size={20} /></button>
+          </div>
+
+          <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-black">
+            {pendingOdoUrl && (
+              <img src={pendingOdoUrl} alt="Foto do odômetro capturada" className="max-w-full max-h-full object-contain" />
+            )}
+          </div>
+
+          <div className="p-5 bg-black/80 space-y-3">
+            <p className="text-slate-400 text-xs text-center">
+              Confirme que dá pra ler os números do odômetro. Se estiver borrada ou ilegível, tire de novo.
+            </p>
+            <Button fullWidth size="lg" variant="success" onClick={confirmOdoPhoto}>
+              <CheckCircle2 size={20} /> Está nítida, confirmar
+            </Button>
+            <Button fullWidth size="lg" variant="secondary" onClick={retakeOdoPhoto}>
+              <RefreshCw size={18} /> Tirar novamente
+            </Button>
+          </div>
         </div>
       )}
     </div>
