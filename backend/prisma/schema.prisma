@@ -117,6 +117,12 @@ model WorkDay {
   odometerKmEntrada        Float?
   odometerPhotoDataEntrada Bytes?
   odometerPhotoUrlEntrada  String?
+  odometerKmSaidaAlmoco        Float?
+  odometerPhotoDataSaidaAlmoco Bytes?
+  odometerPhotoUrlSaidaAlmoco  String?
+  odometerKmRetornoAlmoco        Float?
+  odometerPhotoDataRetornoAlmoco Bytes?
+  odometerPhotoUrlRetornoAlmoco  String?
   createdAt                DateTime   @default(now())
   updatedAt                DateTime   @updatedAt
 

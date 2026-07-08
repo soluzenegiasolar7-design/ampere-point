@@ -15,6 +15,28 @@ import { Spinner } from '../../components/ui/Spinner'
 
 type PunchType = 'ENTRADA' | 'SAIDA_ALMOCO' | 'RETORNO_ALMOCO' | 'SAIDA'
 type Step = 'idle' | 'selfie' | 'odo-form' | 'odo-camera'
+type OdoPhase = 'entrada' | 'saida_almoco' | 'retorno_almoco' | 'saida'
+
+const PUNCH_TO_ODO_PHASE: Record<PunchType, OdoPhase> = {
+  ENTRADA:        'entrada',
+  SAIDA_ALMOCO:   'saida_almoco',
+  RETORNO_ALMOCO: 'retorno_almoco',
+  SAIDA:          'saida',
+}
+
+const ODO_PHASE_LABEL: Record<OdoPhase, { title: string; kmLabel: string; short: string }> = {
+  entrada:        { title: 'entrada',           kmLabel: 'no início do dia',     short: 'Entrada' },
+  saida_almoco:   { title: 'saída pro almoço',  kmLabel: 'na saída pro almoço',  short: 'Saída Almoço' },
+  retorno_almoco: { title: 'volta do almoço',   kmLabel: 'na volta do almoço',   short: 'Retorno Almoço' },
+  saida:          { title: 'saída',             kmLabel: 'no fim do dia',        short: 'Saída' },
+}
+
+const ODO_WORKDAY_FIELD: Record<OdoPhase, { km: string; photo: string }> = {
+  entrada:        { km: 'odometerKmEntrada',       photo: 'odometerPhotoUrlEntrada' },
+  saida_almoco:   { km: 'odometerKmSaidaAlmoco',    photo: 'odometerPhotoUrlSaidaAlmoco' },
+  retorno_almoco: { km: 'odometerKmRetornoAlmoco',  photo: 'odometerPhotoUrlRetornoAlmoco' },
+  saida:          { km: 'odometerKm',               photo: 'odometerPhotoUrl' },
+}
 
 const PUNCH_CONFIG: Record<PunchType, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
   ENTRADA:        { label: 'Registrar Entrada',  color: 'text-emerald-400', bg: 'bg-emerald-500',  icon: <CheckCircle2 size={22} /> },
@@ -159,21 +181,15 @@ export default function PunchPage() {
     }
   }, [])
 
-  const [odoPhase, setOdoPhase] = useState<'entrada' | 'saida'>('saida')
+  const [odoPhase, setOdoPhase] = useState<OdoPhase>('saida')
   const isPrePunchOdo = useRef(false)
 
-  // ── SELFIE FLOW ──
+  // ── SELFIE FLOW ── odômetro é obrigatório antes da selfie, nos 4 tipos de ponto
   const handlePunchClick = async () => {
-    if (nextPunch === 'SAIDA' || nextPunch === 'ENTRADA') {
-      isPrePunchOdo.current = true
-      setOdoPhase(nextPunch === 'ENTRADA' ? 'entrada' : 'saida')
-      setOdoKm(''); setOdoPhotoBlob(null)
-      setStep('odo-form')
-    } else {
-      isPrePunchOdo.current = false
-      setStep('selfie')
-      await selfie.start()
-    }
+    isPrePunchOdo.current = true
+    setOdoPhase(PUNCH_TO_ODO_PHASE[nextPunch!])
+    setOdoKm(''); setOdoPhotoBlob(null)
+    setStep('odo-form')
   }
 
   const continueToSelfie = async () => {
@@ -410,13 +426,14 @@ export default function PunchPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {(['entrada', 'saida'] as const).map(phase => {
-                const km = phase === 'entrada' ? workDay?.odometerKmEntrada : workDay?.odometerKm
-                const photo = phase === 'entrada' ? workDay?.odometerPhotoUrlEntrada : workDay?.odometerPhotoUrl
+              {(['entrada', 'saida_almoco', 'retorno_almoco', 'saida'] as const).map(phase => {
+                const field = ODO_WORKDAY_FIELD[phase]
+                const km = workDay?.[field.km]
+                const photo = workDay?.[field.photo]
                 return (
                   <div key={phase}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs text-slate-500 uppercase tracking-wide">{phase === 'entrada' ? 'Entrada' : 'Saída'}</span>
+                      <span className="text-xs text-slate-500 uppercase tracking-wide">{ODO_PHASE_LABEL[phase].short}</span>
                       {km != null && <Badge variant="success"><CheckCircle2 size={10} /></Badge>}
                     </div>
                     {km != null ? (
@@ -425,7 +442,7 @@ export default function PunchPage() {
                           <p className="text-purple-400 font-bold text-xl">{Number(km).toFixed(0)} km</p>
                         </div>
                         {photo && (
-                          <img src={photoUrl(photo)} alt={`Odômetro ${phase}`} className="w-full rounded-xl object-cover max-h-20 mb-2" />
+                          <img src={photoUrl(photo)} alt={`Odômetro ${ODO_PHASE_LABEL[phase].short}`} className="w-full rounded-xl object-cover max-h-20 mb-2" />
                         )}
                         <button
                           onClick={() => { setOdoPhase(phase); isPrePunchOdo.current = false; setOdoKm(String(km)); setOdoPhotoBlob(null); setStep('odo-form') }}
@@ -662,12 +679,12 @@ export default function PunchPage() {
             <div>
               <p className="text-white font-bold flex items-center gap-2">
                 <Car size={18} className="text-amber-400" />
-                Quilometragem na {odoPhase === 'entrada' ? 'entrada' : 'saída'}
+                Quilometragem na {ODO_PHASE_LABEL[odoPhase].title}
                 {isPrePunchOdo.current && <span className="text-amber-500/70 font-normal text-sm">— Passo 1 de 2</span>}
               </p>
               {isPrePunchOdo.current && (
                 <p className="text-amber-500/80 text-xs mt-0.5">
-                  Informe os km antes de registrar {odoPhase === 'entrada' ? 'a entrada' : 'a saída'}
+                  Informe os km antes de registrar {ODO_PHASE_LABEL[odoPhase].title}
                 </p>
               )}
             </div>
@@ -683,7 +700,7 @@ export default function PunchPage() {
 
             <div>
               <label className="text-sm font-medium text-slate-400 block mb-2">
-                Km {odoPhase === 'entrada' ? 'no início do dia' : 'no fim do dia'} *
+                Km {ODO_PHASE_LABEL[odoPhase].kmLabel} *
               </label>
               <input
                 type="number" inputMode="decimal" placeholder="Ex: 120"

@@ -8,24 +8,39 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 const router = Router()
 
+type Phase = 'entrada' | 'saida_almoco' | 'retorno_almoco' | 'saida'
+
+const PHASE_FIELDS = {
+  entrada:        { km: 'odometerKmEntrada',       photoData: 'odometerPhotoDataEntrada',       photoUrl: 'odometerPhotoUrlEntrada',       urlPath: '/entrada' },
+  saida_almoco:   { km: 'odometerKmSaidaAlmoco',    photoData: 'odometerPhotoDataSaidaAlmoco',    photoUrl: 'odometerPhotoUrlSaidaAlmoco',    urlPath: '/saida_almoco' },
+  retorno_almoco: { km: 'odometerKmRetornoAlmoco',  photoData: 'odometerPhotoDataRetornoAlmoco',  photoUrl: 'odometerPhotoUrlRetornoAlmoco',  urlPath: '/retorno_almoco' },
+  saida:          { km: 'odometerKm',               photoData: 'odometerPhotoData',               photoUrl: 'odometerPhotoUrl',               urlPath: '' },
+} as const
+
+function resolvePhase(value: unknown): Phase {
+  return value === 'entrada' || value === 'saida_almoco' || value === 'retorno_almoco' ? value : 'saida'
+}
+
 // foto do odômetro do WorkDay — pública (img tag não envia auth header)
-// /entrada retorna a foto do início do dia; padrão é a foto da saída
-// (fica como segmento de path, não query string, pra não colidir com ?token= do photoUrl())
-async function sendOdometerPhoto(req: Request, res: Response, next: NextFunction, isEntrada: boolean) {
+// a fase vai no path, nunca em query string, pra não colidir com ?token= do photoUrl()
+async function sendOdometerPhoto(req: Request, res: Response, next: NextFunction, phase: Phase) {
   try {
+    const field = PHASE_FIELDS[phase].photoData
     const wd = await prisma.workDay.findUnique({
       where: { id: req.params.id as string },
-      select: { odometerPhotoData: true, odometerPhotoDataEntrada: true },
+      select: { [field]: true },
     })
-    const photo = isEntrada ? wd?.odometerPhotoDataEntrada : wd?.odometerPhotoData
+    const photo = (wd as any)?.[field]
     if (!photo) { res.status(404).end(); return }
     res.setHeader('Content-Type', 'image/jpeg')
     res.setHeader('Cache-Control', 'public, max-age=86400')
     res.send(photo)
   } catch (e) { next(e) }
 }
-router.get('/odometer-photo/:id', requireAuthPhoto, (req, res, next) => sendOdometerPhoto(req, res, next, false))
-router.get('/odometer-photo/:id/entrada', requireAuthPhoto, (req, res, next) => sendOdometerPhoto(req, res, next, true))
+router.get('/odometer-photo/:id', requireAuthPhoto, (req, res, next) => sendOdometerPhoto(req, res, next, 'saida'))
+router.get('/odometer-photo/:id/entrada', requireAuthPhoto, (req, res, next) => sendOdometerPhoto(req, res, next, 'entrada'))
+router.get('/odometer-photo/:id/saida_almoco', requireAuthPhoto, (req, res, next) => sendOdometerPhoto(req, res, next, 'saida_almoco'))
+router.get('/odometer-photo/:id/retorno_almoco', requireAuthPhoto, (req, res, next) => sendOdometerPhoto(req, res, next, 'retorno_almoco'))
 
 router.use(requireAuth)
 
@@ -156,24 +171,22 @@ router.get('/my', async (req: Request, res: Response, next: NextFunction) => {
         id: true, date: true, totalKm: true, totalMinutes: true,
         status: true, odometerKm: true, odometerPhotoUrl: true,
         odometerKmEntrada: true, odometerPhotoUrlEntrada: true,
+        odometerKmSaidaAlmoco: true, odometerPhotoUrlSaidaAlmoco: true,
+        odometerKmRetornoAlmoco: true, odometerPhotoUrlRetornoAlmoco: true,
       },
     })
     res.json(days)
   } catch (e) { next(e) }
 })
 
-// registra km e foto do odômetro para o dia de hoje
-// phase=entrada grava a leitura do início do dia; padrão (ou phase=saida) grava a leitura de saída
+// registra km e foto do odômetro para o dia de hoje, em qualquer uma das 4 fases do ponto
 router.patch('/today/odometer', upload.single('odometerPhoto'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as AuthRequest).userId
-    const isEntrada = req.body.phase === 'entrada'
+    const phase = resolvePhase(req.body.phase)
+    const { km: kmField, photoData: photoField, photoUrl: urlField, urlPath } = PHASE_FIELDS[phase]
     const odometerKm = req.body.odometerKm != null ? parseFloat(req.body.odometerKm) : undefined
     if (!odometerKm && !req.file) { res.status(400).json({ message: 'Informe km ou foto' }); return }
-
-    const kmField   = isEntrada ? 'odometerKmEntrada' : 'odometerKm'
-    const photoField = isEntrada ? 'odometerPhotoDataEntrada' : 'odometerPhotoData'
-    const urlField    = isEntrada ? 'odometerPhotoUrlEntrada' : 'odometerPhotoUrl'
 
     const { dateKey: dateOnly } = brtTodayRange()
     const wd = await prisma.workDay.upsert({
@@ -185,18 +198,18 @@ router.patch('/today/odometer', upload.single('odometerPhoto'), async (req: Requ
         }),
       },
       create: { userId, date: dateOnly, [kmField]: odometerKm, status: 'PENDENTE' },
-      select: { id: true, odometerKm: true, odometerKmEntrada: true },
+      select: { id: true, [kmField]: true } as any,
     })
 
     // define a URL após ter o ID
     if (req.file?.buffer) {
       await prisma.workDay.update({
         where: { id: wd.id },
-        data: { [urlField]: `/api/work-days/odometer-photo/${wd.id}${isEntrada ? '/entrada' : ''}` },
+        data: { [urlField]: `/api/work-days/odometer-photo/${wd.id}${urlPath}` },
       })
     }
 
-    res.json({ ok: true, odometerKm: isEntrada ? wd.odometerKmEntrada : wd.odometerKm })
+    res.json({ ok: true, odometerKm: (wd as any)[kmField] })
   } catch (e) { next(e) }
 })
 
