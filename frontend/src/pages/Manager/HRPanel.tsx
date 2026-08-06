@@ -4,6 +4,7 @@ import { api } from '../../services/api'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { Spinner } from '../../components/ui/Spinner'
+import { HourBankList } from '../../components/shared/HourBankList'
 
 type HRTab = 'holerites' | 'ausencias' | 'ferias' | 'folgas' | 'ajustes' | 'banco'
 
@@ -25,8 +26,8 @@ interface Props {
   employees: Employee[]
 }
 
-const inputCls = 'bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 w-full'
-const labelCls = 'text-xs text-slate-400 block mb-1'
+const inputCls = 'bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-orange-500 w-full'
+const labelCls = 'text-xs text-slate-500 block mb-1'
 
 export default function HRPanel({ employees }: Props) {
   const [tab, setTab] = useState<HRTab>('holerites')
@@ -83,9 +84,6 @@ export default function HRPanel({ employees }: Props) {
   const [bankAdjDate, setBankAdjDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [bankAdjReason, setBankAdjReason] = useState('')
   const [bankAdjLoading, setBankAdjLoading] = useState(false)
-  const [bankExpandedUserId, setBankExpandedUserId] = useState<string | null>(null)
-  const [bankEntries, setBankEntries] = useState<any[]>([])
-  const [bankEntriesLoading, setBankEntriesLoading] = useState(false)
 
   useEffect(() => { loadTab() }, [tab, adjFilter])
 
@@ -193,13 +191,6 @@ export default function HRPanel({ employees }: Props) {
     } catch {}
   }
 
-  function entryTypeLabel(type: string) {
-    if (type === 'DAYOFF_DEBIT') return 'Folga aprovada'
-    if (type === 'MANUAL_CREDIT') return 'Ajuste manual (crédito)'
-    if (type === 'MANUAL_DEBIT') return 'Ajuste manual (débito)'
-    return type
-  }
-
   async function createBankAdjustment(e: React.FormEvent) {
     e.preventDefault()
     if (!bankAdjUserId || !bankAdjHours || !bankAdjReason) return
@@ -213,27 +204,7 @@ export default function HRPanel({ employees }: Props) {
       })
       setBankAdjHours(''); setBankAdjReason('')
       loadTab()
-      if (bankExpandedUserId === bankAdjUserId) toggleBankEntries(bankAdjUserId, true)
     } catch {} finally { setBankAdjLoading(false) }
-  }
-
-  async function toggleBankEntries(userId: string, forceReload = false) {
-    if (bankExpandedUserId === userId && !forceReload) { setBankExpandedUserId(null); return }
-    setBankExpandedUserId(userId)
-    setBankEntriesLoading(true)
-    try {
-      const r = await api.get(`/api/hour-bank/entries?userId=${userId}`)
-      setBankEntries(r.data)
-    } catch {} finally { setBankEntriesLoading(false) }
-  }
-
-  async function removeBankEntry(id: string) {
-    if (!window.confirm('Remover este ajuste manual?')) return
-    try {
-      await api.delete(`/api/hour-bank/entries/${id}`)
-      setBankEntries(prev => prev.filter(e => e.id !== id))
-      loadTab()
-    } catch {}
   }
 
   const TABS_HR: { id: HRTab; label: string; icon: React.ReactNode }[] = [
@@ -252,7 +223,7 @@ export default function HRPanel({ employees }: Props) {
         {TABS_HR.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              tab === t.id ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-400 hover:text-white'
+              tab === t.id ? 'bg-orange-600 text-black' : 'bg-slate-50 text-slate-500 hover:text-slate-900'
             }`}>
             {t.icon}{t.label}
           </button>
@@ -264,9 +235,9 @@ export default function HRPanel({ employees }: Props) {
       {/* ── HOLERITES ── */}
       {!loading && tab === 'holerites' && (
         <div className="space-y-4">
-          <form onSubmit={uploadPayslip} className="bg-slate-800/50 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-white flex items-center gap-2">
-              <Upload size={14} className="text-amber-400" /> Enviar Holerite
+          <form onSubmit={uploadPayslip} className="bg-slate-50 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <Upload size={14} className="text-orange-600" /> Enviar Holerite
             </p>
             <div>
               <label className={labelCls}>Funcionário</label>
@@ -290,10 +261,10 @@ export default function HRPanel({ employees }: Props) {
             <div>
               <label className={labelCls}>Arquivo PDF</label>
               <input type="file" accept=".pdf" onChange={e => setPayslipFile(e.target.files?.[0] || null)}
-                className="w-full text-sm text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-amber-500/20 file:text-amber-400 file:text-xs hover:file:bg-amber-500/30 cursor-pointer" />
+                className="w-full text-sm text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-orange-100 file:text-orange-600 file:text-xs hover:file:bg-orange-100 cursor-pointer" />
             </div>
             {payslipMsg && (
-              <p className={`text-xs ${payslipMsg.includes('sucesso') ? 'text-green-400' : 'text-red-400'}`}>{payslipMsg}</p>
+              <p className={`text-xs ${payslipMsg.includes('sucesso') ? 'text-green-700' : 'text-red-600'}`}>{payslipMsg}</p>
             )}
             <Button type="submit" size="sm" loading={payslipLoading}><Upload size={14} /> Enviar</Button>
           </form>
@@ -303,8 +274,8 @@ export default function HRPanel({ employees }: Props) {
       {/* ── AUSÊNCIAS ── */}
       {!loading && tab === 'ausencias' && (
         <div className="space-y-4">
-          <form onSubmit={createAbsence} className="bg-slate-800/50 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-white">Lançar Ausência</p>
+          <form onSubmit={createAbsence} className="bg-slate-50 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-slate-900">Lançar Ausência</p>
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className={labelCls}>Funcionário</label>
@@ -328,17 +299,17 @@ export default function HRPanel({ employees }: Props) {
           </form>
           <div className="space-y-2">
             {absences.map((a: any) => (
-              <div key={a.id} className="flex items-center justify-between bg-slate-800/40 rounded-xl p-3">
+              <div key={a.id} className="flex items-center justify-between bg-slate-50 rounded-xl p-3">
                 <div>
-                  <p className="text-sm font-medium text-white">{a.user?.name}</p>
-                  <p className="text-xs text-slate-400">{fmtDate(a.date)} · {a.type}{a.reason ? ` · ${a.reason}` : ''}</p>
+                  <p className="text-sm font-medium text-slate-900">{a.user?.name}</p>
+                  <p className="text-xs text-slate-500">{fmtDate(a.date)} · {a.type}{a.reason ? ` · ${a.reason}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {statusBadge(a.status)}
                   {a.status === 'PENDING' && (
                     <>
-                      <button onClick={() => reviewItem('/api/absences', a.id, 'APPROVED')} className="p-1 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"><Check size={13} /></button>
-                      <button onClick={() => reviewItem('/api/absences', a.id, 'REJECTED')} className="p-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"><X size={13} /></button>
+                      <button onClick={() => reviewItem('/api/absences', a.id, 'APPROVED')} className="p-1 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"><Check size={13} /></button>
+                      <button onClick={() => reviewItem('/api/absences', a.id, 'REJECTED')} className="p-1 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"><X size={13} /></button>
                     </>
                   )}
                 </div>
@@ -352,8 +323,8 @@ export default function HRPanel({ employees }: Props) {
       {/* ── FÉRIAS ── */}
       {!loading && tab === 'ferias' && (
         <div className="space-y-4">
-          <form onSubmit={createVacation} className="bg-slate-800/50 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-white">Agendar Férias</p>
+          <form onSubmit={createVacation} className="bg-slate-50 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-slate-900">Agendar Férias</p>
             <div>
               <label className={labelCls}>Funcionário</label>
               <select value={vacUserId} onChange={e => setVacUserId(e.target.value)} className={inputCls} required>
@@ -370,17 +341,17 @@ export default function HRPanel({ employees }: Props) {
           </form>
           <div className="space-y-2">
             {vacations.map((v: any) => (
-              <div key={v.id} className="flex items-center justify-between bg-slate-800/40 rounded-xl p-3">
+              <div key={v.id} className="flex items-center justify-between bg-slate-50 rounded-xl p-3">
                 <div>
-                  <p className="text-sm font-medium text-white">{v.user?.name}</p>
-                  <p className="text-xs text-slate-400">{fmtDate(v.startDate)} → {fmtDate(v.endDate)}{v.notes ? ` · ${v.notes}` : ''}</p>
+                  <p className="text-sm font-medium text-slate-900">{v.user?.name}</p>
+                  <p className="text-xs text-slate-500">{fmtDate(v.startDate)} → {fmtDate(v.endDate)}{v.notes ? ` · ${v.notes}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {statusBadge(v.status)}
                   {v.status === 'PENDING' && (
                     <>
-                      <button onClick={() => reviewItem('/api/vacations', v.id, 'APPROVED')} className="p-1 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"><Check size={13} /></button>
-                      <button onClick={() => reviewItem('/api/vacations', v.id, 'REJECTED')} className="p-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"><X size={13} /></button>
+                      <button onClick={() => reviewItem('/api/vacations', v.id, 'APPROVED')} className="p-1 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"><Check size={13} /></button>
+                      <button onClick={() => reviewItem('/api/vacations', v.id, 'REJECTED')} className="p-1 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"><X size={13} /></button>
                     </>
                   )}
                 </div>
@@ -394,8 +365,8 @@ export default function HRPanel({ employees }: Props) {
       {/* ── FOLGAS ── */}
       {!loading && tab === 'folgas' && (
         <div className="space-y-4">
-          <form onSubmit={createDayOff} className="bg-slate-800/50 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-white">Lançar Folga</p>
+          <form onSubmit={createDayOff} className="bg-slate-50 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-slate-900">Lançar Folga</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Funcionário</label>
@@ -411,17 +382,17 @@ export default function HRPanel({ employees }: Props) {
           </form>
           <div className="space-y-2">
             {dayOffs.map((d: any) => (
-              <div key={d.id} className="flex items-center justify-between bg-slate-800/40 rounded-xl p-3">
+              <div key={d.id} className="flex items-center justify-between bg-slate-50 rounded-xl p-3">
                 <div>
-                  <p className="text-sm font-medium text-white">{d.user?.name}</p>
-                  <p className="text-xs text-slate-400">{fmtDate(d.date)}{d.reason ? ` · ${d.reason}` : ''}</p>
+                  <p className="text-sm font-medium text-slate-900">{d.user?.name}</p>
+                  <p className="text-xs text-slate-500">{fmtDate(d.date)}{d.reason ? ` · ${d.reason}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {statusBadge(d.status)}
                   {d.status === 'PENDING' && (
                     <>
-                      <button onClick={() => reviewItem('/api/day-offs', d.id, 'APPROVED')} className="p-1 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"><Check size={13} /></button>
-                      <button onClick={() => reviewItem('/api/day-offs', d.id, 'REJECTED')} className="p-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"><X size={13} /></button>
+                      <button onClick={() => reviewItem('/api/day-offs', d.id, 'APPROVED')} className="p-1 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"><Check size={13} /></button>
+                      <button onClick={() => reviewItem('/api/day-offs', d.id, 'REJECTED')} className="p-1 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"><X size={13} /></button>
                     </>
                   )}
                 </div>
@@ -437,9 +408,9 @@ export default function HRPanel({ employees }: Props) {
         <div className="space-y-4">
 
           {/* Correção direta */}
-          <div className="bg-slate-800/50 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-white flex items-center gap-2">
-              <Wrench size={14} className="text-amber-400" /> Correção Direta de Ponto
+          <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <Wrench size={14} className="text-orange-600" /> Correção Direta de Ponto
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -461,41 +432,41 @@ export default function HRPanel({ employees }: Props) {
             {corrEntries.length > 0 && (
               <div className="space-y-2 pt-1">
                 {corrEntries.map((e: any) => (
-                  <div key={e.id} className="flex items-center justify-between bg-slate-700/50 rounded-xl px-3 py-2.5">
+                  <div key={e.id} className="flex items-center justify-between bg-slate-100 rounded-xl px-3 py-2.5">
                     <div className="flex items-center gap-3">
-                      <span className="text-xs font-medium text-slate-300 w-28">
+                      <span className="text-xs font-medium text-slate-600 w-28">
                         {e.type === 'ENTRADA' ? 'Entrada' : e.type === 'SAIDA_ALMOCO' ? 'Saída Almoço' : e.type === 'RETORNO_ALMOCO' ? 'Retorno Almoço' : 'Saída'}
                       </span>
                       {editingId === e.id ? (
                         <input
                           type="time" value={editingTime}
                           onChange={ev => setEditingTime(ev.target.value)}
-                          className="bg-slate-800 border border-amber-500 rounded-lg px-2 py-1 text-white text-sm focus:outline-none w-24"
+                          className="bg-slate-50 border border-orange-500 rounded-lg px-2 py-1 text-slate-900 text-sm focus:outline-none w-24"
                         />
                       ) : (
-                        <span className="text-emerald-400 font-mono font-bold text-sm">{brtTime(e.timestamp)}</span>
+                        <span className="text-emerald-700 font-mono font-bold text-sm">{brtTime(e.timestamp)}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5">
                       {editingId === e.id ? (
                         <>
                           <button onClick={() => saveEntryTime(e.id)}
-                            className="p-1.5 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors">
+                            className="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
                             <Check size={13} />
                           </button>
                           <button onClick={() => setEditingId(null)}
-                            className="p-1.5 rounded-lg bg-slate-700 text-slate-400 hover:text-white transition-colors">
+                            className="p-1.5 rounded-lg bg-slate-200 text-slate-500 hover:text-slate-900 transition-colors">
                             <X size={13} />
                           </button>
                         </>
                       ) : (
                         <button onClick={() => { setEditingId(e.id); setEditingTime(brtTime(e.timestamp)) }}
-                          className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors">
+                          className="p-1.5 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors">
                           <Pencil size={13} />
                         </button>
                       )}
                       <button onClick={() => deleteEntryDirect(e.id)}
-                        className="p-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors">
+                        className="p-1.5 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors">
                         <Trash2 size={13} />
                       </button>
                     </div>
@@ -503,7 +474,7 @@ export default function HRPanel({ employees }: Props) {
                 ))}
                 {corrEntries.length < 4 && (
                   <p className="text-xs text-slate-500 text-center pt-1">
-                    Próximo ponto do funcionário: <span className="text-amber-400 font-medium">
+                    Próximo ponto do funcionário: <span className="text-orange-600 font-medium">
                       {['ENTRADA', 'SAIDA_ALMOCO', 'RETORNO_ALMOCO', 'SAIDA'][corrEntries.length] ?? '—'}
                     </span>
                   </p>
@@ -515,37 +486,37 @@ export default function HRPanel({ employees }: Props) {
             )}
           </div>
 
-          <hr className="border-slate-700/50" />
+          <hr className="border-slate-200" />
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Solicitações dos Funcionários</p>
 
           <div className="flex gap-2 flex-wrap">
             {['PENDING', 'APPROVED', 'REJECTED'].map(s => (
               <button key={s} onClick={() => setAdjFilter(s)}
                 className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                  adjFilter === s ? 'bg-amber-500 text-black' : 'bg-slate-800 text-slate-400 hover:text-white'
+                  adjFilter === s ? 'bg-orange-600 text-black' : 'bg-slate-50 text-slate-500 hover:text-slate-900'
                 }`}>
                 {s === 'PENDING' ? 'Pendentes' : s === 'APPROVED' ? 'Aprovados' : 'Rejeitados'}
               </button>
             ))}
           </div>
           {adjustments.map((a: any) => (
-            <div key={a.id} className="bg-slate-800/40 rounded-xl p-3 space-y-1.5">
+            <div key={a.id} className="bg-slate-50 rounded-xl p-3 space-y-1.5">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-white">{a.user?.name}</p>
+                <p className="text-sm font-medium text-slate-900">{a.user?.name}</p>
                 {statusBadge(a.status)}
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 {fmtDate(a.date)} · {a.punchType} → {new Date(a.requestedTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
               </p>
-              <p className="text-xs text-slate-300">{a.reason}</p>
+              <p className="text-xs text-slate-600">{a.reason}</p>
               {a.status === 'PENDING' && (
                 <div className="flex gap-2 pt-0.5">
                   <button onClick={() => reviewItem('/api/time-adjustments', a.id, 'APPROVED')}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-500/20 text-green-400 text-xs hover:bg-green-500/30 transition-colors">
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-100 text-green-700 text-xs hover:bg-green-200 transition-colors">
                     <Check size={12} /> Aprovar
                   </button>
                   <button onClick={() => reviewItem('/api/time-adjustments', a.id, 'REJECTED')}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/20 text-red-400 text-xs hover:bg-red-500/30 transition-colors">
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-100 text-red-600 text-xs hover:bg-red-200 transition-colors">
                     <X size={12} /> Rejeitar
                   </button>
                 </div>
@@ -572,8 +543,8 @@ export default function HRPanel({ employees }: Props) {
             <Button size="sm" onClick={loadTab}>Atualizar</Button>
           </div>
 
-          <form onSubmit={createBankAdjustment} className="bg-slate-800/50 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-white">Lançar Ajuste Manual</p>
+          <form onSubmit={createBankAdjustment} className="bg-slate-50 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-slate-900">Lançar Ajuste Manual</p>
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className={labelCls}>Funcionário</label>
@@ -600,66 +571,7 @@ export default function HRPanel({ employees }: Props) {
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
             <Clock size={13} /> Saldo do Banco de Horas
           </p>
-          <div className="space-y-1">
-            {[...hourBank]
-              .sort((a: any, b: any) => {
-                if (a.balanceHours > 0 && b.balanceHours > 0) return b.balanceHours - a.balanceHours
-                if (a.balanceHours < 0 && b.balanceHours < 0) return a.balanceHours - b.balanceHours
-                if (a.balanceHours === 0 && b.balanceHours === 0) return 0
-                if (a.balanceHours === 0) return 1
-                if (b.balanceHours === 0) return -1
-                return b.balanceHours - a.balanceHours
-              })
-              .map((hb: any) => (
-              <div key={hb.userId} className="bg-slate-800/40 rounded-xl overflow-hidden">
-                <button type="button" onClick={() => toggleBankEntries(hb.userId)}
-                  className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-slate-800/70 transition-colors">
-                  <span className="text-xs font-semibold uppercase text-slate-200 tracking-wide">{hb.name}</span>
-                  <span className={`text-sm font-bold tabular-nums ${
-                    hb.balanceHours > 0 ? 'text-emerald-400' : hb.balanceHours < 0 ? 'text-red-400' : 'text-slate-400'
-                  }`}>
-                    {hb.balanceHours === 0 ? '0' : `${hb.balanceHours.toFixed(2)}h`}
-                  </span>
-                </button>
-                {bankExpandedUserId === hb.userId && (
-                  <div className="border-t border-slate-700/50 p-3 space-y-2">
-                    <p className="text-xs text-slate-400">
-                      {hb.workedDays} dias · {hb.totalWorkedHours}h trabalhadas · {hb.totalExpectedHours}h esperadas
-                    </p>
-                    {hb.expiringMinutes > 0 && (
-                      <p className="text-xs text-amber-400">
-                        ⚠ {hb.expiringHours}h com mais de {hb.windowMonths} meses sem compensar
-                      </p>
-                    )}
-                    {bankEntriesLoading && <div className="flex justify-center py-4"><Spinner /></div>}
-                    {!bankEntriesLoading && bankEntries.map((entry: any) => (
-                      <div key={entry.id} className="flex items-center justify-between bg-slate-900/40 rounded-lg px-3 py-2">
-                        <div>
-                          <p className="text-xs text-slate-300">{entryTypeLabel(entry.type)}</p>
-                          <p className="text-xs text-slate-500">{fmtDate(entry.date)}{entry.reason ? ` · ${entry.reason}` : ''}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs font-bold ${entry.minutes >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {entry.minutes >= 0 ? '+' : ''}{(entry.minutes / 60).toFixed(1)}h
-                          </span>
-                          {entry.type !== 'DAYOFF_DEBIT' && (
-                            <button onClick={() => removeBankEntry(entry.id)}
-                              className="p-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors">
-                              <Trash2 size={12} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {!bankEntriesLoading && bankEntries.length === 0 && (
-                      <p className="text-slate-500 text-xs text-center py-3">Nenhum lançamento no extrato</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-            {hourBank.length === 0 && <p className="text-slate-500 text-sm text-center py-6">Nenhum dado para o período</p>}
-          </div>
+          <HourBankList data={hourBank} />
         </div>
       )}
     </div>

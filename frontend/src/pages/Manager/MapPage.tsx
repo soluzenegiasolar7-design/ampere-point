@@ -6,7 +6,8 @@ import {
   Zap, LogOut, Map, Users, Clock, History, Radio,
   ChevronLeft, ChevronRight, Search, Download, UserPlus,
   Edit2, UserX, UserCheck, RefreshCw, MapPin, Navigation,
-  Camera, Car, FileText, Copy, CheckCircle2, AlertCircle, X, Briefcase
+  Camera, Car, FileText, Copy, CheckCircle2, AlertCircle, X, Briefcase,
+  LayoutDashboard
 } from 'lucide-react'
 import { useLocationStore } from '../../stores/location.store'
 import { useSocket } from '../../hooks/useSocket'
@@ -14,6 +15,7 @@ import { api, photoUrl } from '../../services/api'
 import { useAuthStore } from '../../stores/auth.store'
 import EmployeeDayModal from './EmployeeDayModal'
 import HRPanel from './HRPanel'
+import DashboardPage from './DashboardPage'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { Button } from '../../components/ui/Button'
@@ -51,16 +53,17 @@ const PUNCH_BADGE_VARIANT: Record<string, 'success' | 'warning' | 'info' | 'dang
   ENTRADA: 'success', SAIDA_ALMOCO: 'warning', RETORNO_ALMOCO: 'info', SAIDA: 'danger',
 }
 
-type Tab = 'mapa' | 'funcionarios' | 'pontos' | 'historico' | 'rastreamento' | 'rh'
+type Tab = 'dashboard' | 'mapa' | 'funcionarios' | 'pontos' | 'historico' | 'rastreamento' | 'rh'
 type UnitFilter = 'all' | 'Natal' | 'Caruaru'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'mapa',         label: 'Mapa',         icon: <Map size={16} /> },
-  { id: 'funcionarios', label: 'Funcionários',  icon: <Users size={16} /> },
-  { id: 'pontos',       label: 'Pontos',        icon: <Clock size={16} /> },
-  { id: 'historico',    label: 'Histórico',     icon: <History size={16} /> },
-  { id: 'rastreamento', label: 'Rastreamento',  icon: <Radio size={16} /> },
-  { id: 'rh',           label: 'RH',            icon: <Briefcase size={16} /> },
+  { id: 'dashboard',    label: 'Dashboard',    icon: <LayoutDashboard size={18} /> },
+  { id: 'mapa',         label: 'Mapa',         icon: <Map size={18} /> },
+  { id: 'funcionarios', label: 'Funcionários',  icon: <Users size={18} /> },
+  { id: 'pontos',       label: 'Pontos',        icon: <Clock size={18} /> },
+  { id: 'historico',    label: 'Histórico',     icon: <History size={18} /> },
+  { id: 'rastreamento', label: 'Rastreamento',  icon: <Radio size={18} /> },
+  { id: 'rh',           label: 'RH',            icon: <Briefcase size={18} /> },
 ]
 
 function FitTrail({ trail }: { trail: [number, number][] }) {
@@ -110,7 +113,7 @@ async function snapToRoads(points: [number, number][]): Promise<[number, number]
 export default function MapPage() {
   const { user, logout } = useAuthStore()
   const { userLocations } = useLocationStore()
-  const [tab, setTab] = useState<Tab>('mapa')
+  const [tab, setTab] = useState<Tab>('dashboard')
 
   const [employees, setEmployees] = useState<any[]>([])
   const [inactiveEmployees, setInactiveEmployees] = useState<any[]>([])
@@ -492,11 +495,11 @@ export default function MapPage() {
 
   const today = new Date().toLocaleDateString('en-CA')
 
-  const inputCls = 'w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-colors'
-  const labelCls = 'text-xs font-medium text-slate-400 block mb-1.5'
+  const inputCls = 'w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 transition-colors'
+  const labelCls = 'text-xs font-medium text-slate-500 block mb-1.5'
 
   return (
-    <div className="h-screen bg-[#080c14] flex flex-col">
+    <div className="h-screen bg-slate-100 flex flex-col">
 
       {selectedEmployeeModal && (
         <EmployeeDayModal
@@ -508,78 +511,93 @@ export default function MapPage() {
       )}
 
       {/* Header */}
-      <header className="bg-slate-900/80 border-b border-slate-800 px-4 py-3 flex items-center justify-between shrink-0 backdrop-blur-sm">
+      <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
-            <Zap size={18} className="text-gray-950 fill-gray-950" />
+          <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
+            <Zap size={18} className="text-white fill-white" />
           </div>
           <div>
-            <span className="text-white font-bold text-sm">AmperePoint</span>
+            <span className="text-slate-900 font-bold text-sm">AmperePoint</span>
             <p className="text-xs text-slate-500">Painel do Gestor</p>
           </div>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          {loading ? <Spinner size="sm" className="text-amber-500" /> : (
+          {loading ? <Spinner size="sm" className="text-orange-600" /> : (
             <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1 text-emerald-400 text-xs font-medium bg-emerald-500/10 px-2 py-1 rounded-lg">
-                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+              <span className="flex items-center gap-1 text-emerald-700 text-xs font-medium bg-emerald-50 px-2 py-1 rounded-lg">
+                <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full animate-pulse" />
                 {inField} em campo
               </span>
               {onLunchEmps.length > 0 && (
-                <span className="text-xs font-medium text-amber-400 bg-amber-500/10 px-2 py-1 rounded-lg">
+                <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-lg">
                   {onLunchEmps.length} almoço
                 </span>
               )}
               {absentEmps.length > 0 && (
-                <span className="text-xs font-medium text-red-400 bg-red-500/10 px-2 py-1 rounded-lg">
+                <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-lg">
                   {absentEmps.length} ausente{absentEmps.length > 1 ? 's' : ''}
                 </span>
               )}
               {finishedEmps.length > 0 && (
-                <span className="text-xs font-medium text-slate-400 bg-slate-700/50 px-2 py-1 rounded-lg">
+                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
                   {finishedEmps.length} saiu
                 </span>
               )}
             </div>
           )}
-          <button onClick={() => { loadData() }} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
+          <button onClick={() => { loadData() }} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-900 transition-colors">
             <RefreshCw size={15} />
           </button>
-          <button onClick={logout} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-400 px-2 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors">
+          <button onClick={logout} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
             <LogOut size={14} /> Sair
           </button>
         </div>
       </header>
 
-      {/* Tabs */}
-      <nav className="bg-slate-900/60 border-b border-slate-800 flex shrink-0 overflow-x-auto">
-        {TABS.map(({ id, label, icon }) => (
-          <button key={id} onClick={() => setTab(id)}
-            className={clsx(
-              'flex items-center gap-2 px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2',
-              tab === id
-                ? 'border-amber-500 text-amber-400'
-                : 'border-transparent text-slate-500 hover:text-slate-300 hover:border-slate-600'
-            )}>
-            {icon}{label}
-          </button>
-        ))}
-      </nav>
+      <div className="flex-1 flex overflow-hidden">
 
-      {/* Content */}
-      <div className="flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <aside className="w-16 md:w-52 bg-white border-r border-slate-200 flex flex-col py-3 gap-1 shrink-0 overflow-y-auto">
+          {TABS.map(({ id, label, icon }) => (
+            <button key={id} onClick={() => setTab(id)}
+              title={label}
+              className={clsx(
+                'flex items-center gap-3 px-4 md:px-5 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-l-2 justify-center md:justify-start',
+                tab === id
+                  ? 'border-orange-500 text-orange-600 bg-orange-50'
+                  : 'border-transparent text-slate-500 hover:text-slate-600 hover:bg-slate-50'
+              )}>
+              {icon}<span className="hidden md:inline">{label}</span>
+            </button>
+          ))}
+        </aside>
 
-        {/* ── MAPA ── */}
-        {tab === 'mapa' && (
+        {/* Content */}
+        <div className="flex-1 overflow-hidden">
+
+          {/* ── DASHBOARD ── */}
+          {tab === 'dashboard' && (
+            <DashboardPage
+              employees={employees}
+              inField={inField}
+              absentEmps={absentEmps}
+              onLunchEmps={onLunchEmps}
+              onNavigateRH={() => setTab('rh')}
+              onNavigateMapa={() => setTab('mapa')}
+            />
+          )}
+
+          {/* ── MAPA ── */}
+          {tab === 'mapa' && (
           <div className="flex h-full">
-            <div className={clsx('bg-slate-900/80 overflow-hidden shrink-0 transition-all duration-200', sidebarOpen ? 'w-72' : 'w-0')}>
+            <div className={clsx('bg-white overflow-hidden shrink-0 transition-all duration-200', sidebarOpen ? 'w-72' : 'w-0')}>
               <div className="p-3 w-72 h-full overflow-y-auto">
                 {/* Unit filter */}
                 <div className="flex gap-1 mb-3">
                   {(['all', 'Natal', 'Caruaru'] as UnitFilter[]).map(u => (
                     <button key={u} onClick={() => setUnitFilter(u)}
                       className={clsx('flex-1 text-xs py-1.5 rounded-lg font-medium transition-colors',
-                        unitFilter === u ? 'bg-amber-500 text-gray-950' : 'bg-slate-800 text-slate-400 hover:text-white'
+                        unitFilter === u ? 'bg-orange-600 text-white' : 'bg-slate-50 text-slate-500 hover:text-slate-900'
                       )}>
                       {u === 'all' ? 'Todos' : u}
                     </button>
@@ -605,20 +623,20 @@ export default function MapPage() {
                   if (!wd) return null
                   return (
                     <div key={emp.id} className={clsx('rounded-xl mb-2 border transition-colors',
-                      selectedUser === emp.id ? 'bg-amber-500/10 border-amber-500/30' : 'bg-slate-800 border-slate-700 hover:border-slate-600'
+                      selectedUser === emp.id ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-300 hover:border-slate-300'
                     )}>
                       <div className="cursor-pointer p-3 pb-2" onClick={() => setSelectedEmployeeModal({ id: emp.id, name: emp.name, unit: emp.unit })}>
                         <div className="flex justify-between items-center mb-1">
-                          <span className="font-medium text-white text-sm hover:text-amber-400 transition-colors truncate mr-2">{emp.name}</span>
+                          <span className="font-medium text-slate-900 text-sm hover:text-orange-600 transition-colors truncate mr-2">{emp.name}</span>
                           <Badge variant={finished ? 'default' : onLunch ? 'warning' : isActive ? 'success' : 'default'}>
-                            <span className={clsx('w-1.5 h-1.5 rounded-full', isActive ? 'bg-emerald-400' : onLunch ? 'bg-amber-400' : 'bg-slate-500')} />
+                            <span className={clsx('w-1.5 h-1.5 rounded-full', isActive ? 'bg-emerald-600' : onLunch ? 'bg-orange-500' : 'bg-slate-400')} />
                             {finished ? 'Saiu' : onLunch ? 'Almoço' : isActive ? 'Campo' : 'Fora'}
                           </Badge>
                         </div>
                         <p className="text-xs text-slate-500 mb-1.5">{emp.unit}</p>
                         {displayTime && (
                           <div className="flex gap-3 text-xs">
-                            <span className="flex items-center gap-1 text-slate-400">
+                            <span className="flex items-center gap-1 text-slate-500">
                               <Clock size={11} />
                               {displayTime}
                               {elapsed && !wd?.totalMinutes && <span className="text-slate-600"> (em curso)</span>}
@@ -628,7 +646,7 @@ export default function MapPage() {
                         {loc && <p className="text-xs text-slate-600 mt-1">Última pos: {fmtTime(loc.timestamp)}</p>}
                       </div>
                       <button onClick={() => loadTrail(emp.id)}
-                        className="w-full text-xs text-slate-500 hover:text-amber-400 py-1.5 px-3 border-t border-slate-700/50 transition-colors flex items-center justify-center gap-1">
+                        className="w-full text-xs text-slate-500 hover:text-orange-600 py-1.5 px-3 border-t border-slate-200 transition-colors flex items-center justify-center gap-1">
                         <Map size={11} /> {selectedUser === emp.id ? 'Ocultar rota' : 'Ver rota'}
                       </button>
                     </div>
@@ -638,13 +656,13 @@ export default function MapPage() {
                 {/* Absent employees */}
                 {filteredEmployees.filter(e => !getWorkDay(e.id)).length > 0 && (
                   <div className="mt-3">
-                    <p className="text-xs font-semibold text-red-500/70 uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
+                    <p className="text-xs font-semibold text-red-600/70 uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
                       <AlertCircle size={11} /> Ausentes ({filteredEmployees.filter(e => !getWorkDay(e.id)).length})
                     </p>
                     {filteredEmployees.filter(e => !getWorkDay(e.id)).map(emp => (
-                      <div key={emp.id} className="rounded-xl mb-2 border border-red-900/30 bg-red-950/20 p-3">
+                      <div key={emp.id} className="rounded-xl mb-2 border border-red-200 bg-red-50 p-3">
                         <div className="flex justify-between items-center">
-                          <span className="font-medium text-slate-400 text-sm truncate mr-2">{emp.name}</span>
+                          <span className="font-medium text-slate-500 text-sm truncate mr-2">{emp.name}</span>
                           <Badge variant="danger">Ausente</Badge>
                         </div>
                         <p className="text-xs text-slate-600 mt-0.5">{emp.unit}</p>
@@ -656,7 +674,7 @@ export default function MapPage() {
             </div>
 
             <button onClick={() => setSidebarOpen(o => !o)}
-              className="w-5 shrink-0 bg-slate-800 hover:bg-slate-700 border-x border-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors">
+              className="w-5 shrink-0 bg-slate-50 hover:bg-slate-200 border-x border-slate-300 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors">
               {sidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
             </button>
 
@@ -685,7 +703,7 @@ export default function MapPage() {
         {tab === 'funcionarios' && (
           <div className="flex h-full overflow-hidden">
             {/* sidebar lista */}
-            <div className="w-72 border-r border-slate-800 overflow-y-auto p-3 flex flex-col gap-2">
+            <div className="w-72 border-r border-slate-200 overflow-y-auto p-3 flex flex-col gap-2">
               <div className="flex items-center justify-between mb-1 px-1">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ativos ({employees.length})</p>
                 <Button size="sm" onClick={() => { setEditEmp(null); setShowForm(true); setFormMsg(null) }}>
@@ -695,10 +713,10 @@ export default function MapPage() {
 
               {employees.map(emp => (
                 <div key={emp.id} className={clsx('rounded-xl border p-3 cursor-pointer transition-colors',
-                  editEmp?.id === emp.id ? 'bg-amber-500/10 border-amber-500/30' : 'bg-slate-800/80 border-slate-700 hover:border-slate-600'
+                  editEmp?.id === emp.id ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-300 hover:border-slate-300'
                 )} onClick={() => openEditEmp(emp)}>
                   <div className="flex items-center justify-between mb-0.5">
-                    <p className="font-semibold text-white text-sm truncate">{emp.name}</p>
+                    <p className="font-semibold text-slate-900 text-sm truncate">{emp.name}</p>
                     <Edit2 size={13} className="text-slate-500 shrink-0 ml-2" />
                   </div>
                   <p className="text-xs text-slate-500 truncate">{emp.email}</p>
@@ -712,12 +730,12 @@ export default function MapPage() {
               {inactiveEmployees.length > 0 && (
                 <div className="mt-2">
                   <button onClick={() => setShowInactive(v => !v)}
-                    className="text-xs text-slate-600 hover:text-slate-400 flex items-center gap-1 px-1 mb-2 transition-colors">
+                    className="text-xs text-slate-600 hover:text-slate-500 flex items-center gap-1 px-1 mb-2 transition-colors">
                     {showInactive ? <ChevronLeft size={12} /> : <ChevronRight size={12} />} Inativos ({inactiveEmployees.length})
                   </button>
                   {showInactive && inactiveEmployees.map(emp => (
-                    <div key={emp.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 mb-2 opacity-60">
-                      <p className="text-sm text-slate-400 font-medium">{emp.name}</p>
+                    <div key={emp.id} className="bg-white border border-slate-200 rounded-xl p-3 mb-2 opacity-60">
+                      <p className="text-sm text-slate-500 font-medium">{emp.name}</p>
                       <p className="text-xs text-slate-600 truncate mb-2">{emp.email}</p>
                       <Button size="sm" variant="ghost" onClick={() => reactivateEmp(emp)}>
                         <UserCheck size={13} /> Reativar
@@ -733,7 +751,7 @@ export default function MapPage() {
               {!editEmp && !showForm && (
                 <>
                   <Card className="p-5 mb-6 max-w-lg">
-                    <h3 className="font-semibold text-white mb-1 flex items-center gap-2"><FileText size={16} className="text-amber-400" /> Relatório Mensal</h3>
+                    <h3 className="font-semibold text-slate-900 mb-1 flex items-center gap-2"><FileText size={16} className="text-orange-600" /> Relatório Mensal</h3>
                     <p className="text-slate-500 text-sm mb-4">Exporta ponto completo do mês em CSV.</p>
                     <div className="flex gap-3">
                       <input type="month" value={exportMonth} onChange={e => setExportMonth(e.target.value)} className={clsx(inputCls, 'flex-1')} />
@@ -752,15 +770,15 @@ export default function MapPage() {
               {showForm && !editEmp && (
                 <>
                   <div className="flex items-center gap-3 mb-5">
-                    <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-slate-700">
+                    <button onClick={() => setShowForm(false)} className="text-slate-500 hover:text-slate-900 transition-colors p-1.5 rounded-lg hover:bg-slate-200">
                       <ChevronLeft size={18} />
                     </button>
-                    <h2 className="text-lg font-bold text-white">Novo Funcionário</h2>
+                    <h2 className="text-lg font-bold text-slate-900">Novo Funcionário</h2>
                   </div>
                   <form onSubmit={submitNewEmp} className="max-w-lg flex flex-col gap-4">
                     {formMsg && (
                       <div className={clsx('flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium',
-                        formMsg.type === 'ok' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'
+                        formMsg.type === 'ok' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-red-50 border border-red-200 text-red-600'
                       )}>
                         {formMsg.type === 'ok' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />} {formMsg.text}
                       </div>
@@ -785,15 +803,15 @@ export default function MapPage() {
               {editEmp && (
                 <>
                   <div className="flex items-center gap-3 mb-5">
-                    <button onClick={() => setEditEmp(null)} className="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-slate-700">
+                    <button onClick={() => setEditEmp(null)} className="text-slate-500 hover:text-slate-900 transition-colors p-1.5 rounded-lg hover:bg-slate-200">
                       <ChevronLeft size={18} />
                     </button>
-                    <h2 className="text-lg font-bold text-white">Editando: {editEmp.name}</h2>
+                    <h2 className="text-lg font-bold text-slate-900">Editando: {editEmp.name}</h2>
                   </div>
                   <form onSubmit={submitEditEmp} className="max-w-lg flex flex-col gap-4">
                     {formMsg && (
                       <div className={clsx('flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium',
-                        formMsg.type === 'ok' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border border-red-500/20 text-red-400'
+                        formMsg.type === 'ok' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-red-50 border border-red-200 text-red-600'
                       )}>
                         {formMsg.type === 'ok' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />} {formMsg.text}
                       </div>
@@ -826,18 +844,18 @@ export default function MapPage() {
           <div className="h-full overflow-y-auto p-4">
             {zoomedPhoto && (
               <div onClick={() => setZoomedPhoto(null)} className="fixed inset-0 bg-black/95 flex items-center justify-center cursor-zoom-out z-50 backdrop-blur-sm">
-                <button className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"><X size={20} /></button>
+                <button className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-slate-900 hover:bg-white/20 transition-colors"><X size={20} /></button>
                 <img src={zoomedPhoto} alt="Foto ampliada" className="max-w-full max-h-full rounded-xl shadow-2xl" />
               </div>
             )}
 
             <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Camera size={20} className="text-amber-400" /> Registros de Ponto
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Camera size={20} className="text-orange-600" /> Registros de Ponto
               </h2>
               <div className="flex items-center gap-2">
                 <input type="date" value={punchDate} max={today} onChange={e => setPunchDate(e.target.value)}
-                  className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 transition-colors" />
+                  className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-orange-500 transition-colors" />
                 <Button size="sm" variant="secondary" onClick={() => loadPunchesByDate(punchDate)} loading={punchesLoading}>
                   <RefreshCw size={14} />
                 </Button>
@@ -845,7 +863,7 @@ export default function MapPage() {
             </div>
 
             {punchesLoading ? (
-              <div className="flex justify-center py-16"><Spinner size="lg" className="text-amber-500" /></div>
+              <div className="flex justify-center py-16"><Spinner size="lg" className="text-orange-600" /></div>
             ) : allPunches.length === 0 ? (
               <div className="text-center py-16 text-slate-600">
                 <Clock size={32} className="mx-auto mb-3 opacity-30" />
@@ -859,17 +877,17 @@ export default function MapPage() {
                       <div className="cursor-zoom-in relative" onClick={() => setZoomedPhoto(photoUrl(punch.photoUrl))}>
                         <img src={photoUrl(punch.photoUrl)} alt="Selfie" className="w-full object-cover h-44"
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                        <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                        <div className="absolute bottom-2 right-2 bg-black/60 text-slate-900 text-xs px-2 py-1 rounded-full flex items-center gap-1">
                           <Search size={11} /> Ampliar
                         </div>
                       </div>
                     ) : (
-                      <div className="h-32 flex items-center justify-center bg-slate-800 text-slate-600 text-sm gap-2">
+                      <div className="h-32 flex items-center justify-center bg-slate-50 text-slate-600 text-sm gap-2">
                         <Camera size={20} className="opacity-40" /> Sem foto
                       </div>
                     )}
                     <div className="p-3">
-                      <p className="font-semibold text-white text-sm">{punch.user?.name ?? '—'}</p>
+                      <p className="font-semibold text-slate-900 text-sm">{punch.user?.name ?? '—'}</p>
                       <p className="text-xs text-slate-500 mb-2">{punch.user?.unit}</p>
                       <div className="flex items-center justify-between mb-2">
                         <Badge variant={PUNCH_BADGE_VARIANT[punch.type] ?? 'default'}>{PUNCH_LABELS[punch.type] ?? punch.type}</Badge>
@@ -877,7 +895,7 @@ export default function MapPage() {
                       </div>
                       {punch.latitude != null && punch.longitude != null ? (
                         <a href={`https://www.google.com/maps?q=${punch.latitude},${punch.longitude}`} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 bg-slate-800 px-2.5 py-1.5 rounded-lg transition-colors">
+                          className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 bg-slate-50 px-2.5 py-1.5 rounded-lg transition-colors">
                           <MapPin size={12} /> Ver localização
                         </a>
                       ) : (
@@ -896,10 +914,10 @@ export default function MapPage() {
         {/* ── HISTÓRICO ── */}
         {tab === 'historico' && (
           <div className="flex h-full overflow-hidden">
-            <div className="w-80 shrink-0 border-r border-slate-800 flex flex-col overflow-hidden bg-slate-900/40">
-              <div className="p-4 border-b border-slate-800 shrink-0">
-                <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                  <History size={16} className="text-amber-400" /> Histórico por Funcionário
+            <div className="w-80 shrink-0 border-r border-slate-200 flex flex-col overflow-hidden bg-white">
+              <div className="p-4 border-b border-slate-200 shrink-0">
+                <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  <History size={16} className="text-orange-600" /> Histórico por Funcionário
                 </h3>
                 <div className="flex flex-col gap-2">
                   <select value={histEmployee} onChange={e => setHistEmployee(e.target.value)} className={inputCls}>
@@ -919,12 +937,12 @@ export default function MapPage() {
                   <>
                     <div className="mt-4 grid grid-cols-2 gap-2">
                       {[
-                        { label: 'KM GPS', value: `${histSummary.gpsKm.toFixed(1)} km`, color: 'text-blue-400' },
-                        { label: 'KM Odôm.', value: histSummary.odometerKm > 0 ? `${histSummary.odometerKm.toFixed(1)} km` : '—', color: 'text-amber-400' },
-                        { label: 'Horas', value: fmtMin(histSummary.totalMinutes), color: 'text-white' },
-                        { label: 'Dias', value: String(histSummary.workDays), color: 'text-white' },
+                        { label: 'KM GPS', value: `${histSummary.gpsKm.toFixed(1)} km`, color: 'text-blue-600' },
+                        { label: 'KM Odôm.', value: histSummary.odometerKm > 0 ? `${histSummary.odometerKm.toFixed(1)} km` : '—', color: 'text-orange-600' },
+                        { label: 'Horas', value: fmtMin(histSummary.totalMinutes), color: 'text-slate-900' },
+                        { label: 'Dias', value: String(histSummary.workDays), color: 'text-slate-900' },
                       ].map(({ label, value, color }) => (
-                        <div key={label} className="bg-slate-800 rounded-xl p-2.5 text-center">
+                        <div key={label} className="bg-slate-50 rounded-xl p-2.5 text-center">
                           <p className="text-xs text-slate-500 mb-1">{label}</p>
                           <p className={clsx('font-bold text-sm', color)}>{value}</p>
                         </div>
@@ -941,7 +959,7 @@ export default function MapPage() {
                 {!histSummary && !histLoading && (
                   <p className="text-slate-600 text-sm text-center py-8">Selecione funcionário e período.</p>
                 )}
-                {histLoading && <div className="flex justify-center py-8"><Spinner className="text-amber-500" /></div>}
+                {histLoading && <div className="flex justify-center py-8"><Spinner className="text-orange-600" /></div>}
                 {!histLoading && histSummary && histPunches.length === 0 && (
                   <p className="text-slate-600 text-sm text-center py-8">Nenhum ponto neste período.</p>
                 )}
@@ -961,7 +979,7 @@ export default function MapPage() {
                             <div className="cursor-zoom-in relative" onClick={() => setZoomedPhoto(photoUrl(punch.photoUrl))}>
                               <img src={photoUrl(punch.photoUrl)} alt="Selfie" className="w-full object-cover h-24"
                                 onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                              <div className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded-full"><Search size={10} /></div>
+                              <div className="absolute bottom-1 right-1 bg-black/60 text-slate-900 text-xs px-1.5 py-0.5 rounded-full"><Search size={10} /></div>
                             </div>
                           )}
                           <div className="p-2.5">
@@ -970,11 +988,11 @@ export default function MapPage() {
                               <span className="text-xs text-slate-500 tabular-nums">{fmtTime(punch.timestamp)}</span>
                             </div>
                             {punch.odometerKm != null && (
-                              <p className="text-xs text-amber-400 mb-1 flex items-center gap-1"><Car size={11} /> {punch.odometerKm} km</p>
+                              <p className="text-xs text-orange-600 mb-1 flex items-center gap-1"><Car size={11} /> {punch.odometerKm} km</p>
                             )}
                             {punch.latitude != null && punch.longitude != null ? (
                               <a href={`https://www.google.com/maps?q=${punch.latitude},${punch.longitude}`} target="_blank" rel="noreferrer"
-                                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
+                                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors">
                                 <MapPin size={11} /> Ver no Maps
                               </a>
                             ) : (
@@ -1014,7 +1032,7 @@ export default function MapPage() {
               </MapContainer>
               {!histTrail && !histLoading && histEmployee && histSummary && (
                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none">
-                  <div className="bg-slate-900/90 border border-slate-700 text-slate-400 text-sm px-4 py-2 rounded-xl backdrop-blur-sm">
+                  <div className="bg-white border border-slate-300 text-slate-500 text-sm px-4 py-2 rounded-xl backdrop-blur-sm">
                     Sem dados de GPS para este período
                   </div>
                 </div>
@@ -1033,24 +1051,24 @@ export default function MapPage() {
         {tab === 'rastreamento' && (
           <div className="h-full overflow-y-auto p-6">
             <div className="max-w-2xl mx-auto">
-              <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
-                <Radio size={20} className="text-amber-400" /> Rastreamento em Segundo Plano
+              <h2 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+                <Radio size={20} className="text-orange-600" /> Rastreamento em Segundo Plano
               </h2>
-              <p className="text-slate-500 text-sm mb-6">Configure o <strong className="text-slate-300">OwnTracks</strong> para rastrear com tela desligada.</p>
+              <p className="text-slate-500 text-sm mb-6">Configure o <strong className="text-slate-600">OwnTracks</strong> para rastrear com tela desligada.</p>
 
               {/* Passos comuns */}
               <Card className="p-5 mb-4">
-                <h3 className="font-semibold text-white mb-4">Configuração inicial (iOS e Android)</h3>
-                <ol className="space-y-3 text-sm text-slate-400">
+                <h3 className="font-semibold text-slate-900 mb-4">Configuração inicial (iOS e Android)</h3>
+                <ol className="space-y-3 text-sm text-slate-500">
                   {[
-                    'Baixe o <strong class="text-white">OwnTracks</strong> na App Store ou Play Store (gratuito)',
-                    'Abra o app → toque no ícone <strong class="text-white">(i)</strong> no canto superior esquerdo → <strong class="text-white">Configurações</strong>',
-                    'Em <strong class="text-white">Mode</strong>, selecione <strong class="text-white">HTTP</strong>',
-                    'Em <strong class="text-white">URL</strong>, cole o link do funcionário (seção abaixo)',
-                    'No app, selecione o modo <strong class="text-white">Move</strong> e deixe rodando em segundo plano',
+                    'Baixe o <strong class="text-slate-900">OwnTracks</strong> na App Store ou Play Store (gratuito)',
+                    'Abra o app → toque no ícone <strong class="text-slate-900">(i)</strong> no canto superior esquerdo → <strong class="text-slate-900">Configurações</strong>',
+                    'Em <strong class="text-slate-900">Mode</strong>, selecione <strong class="text-slate-900">HTTP</strong>',
+                    'Em <strong class="text-slate-900">URL</strong>, cole o link do funcionário (seção abaixo)',
+                    'No app, selecione o modo <strong class="text-slate-900">Move</strong> e deixe rodando em segundo plano',
                   ].map((step, i) => (
                     <li key={i} className="flex gap-3">
-                      <span className="bg-amber-500 text-gray-950 text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                      <span className="bg-orange-600 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
                       <span dangerouslySetInnerHTML={{ __html: step }} />
                     </li>
                   ))}
@@ -1062,18 +1080,18 @@ export default function MapPage() {
                 <Card className="p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-lg"></span>
-                    <h3 className="font-semibold text-white text-sm">iPhone (iOS)</h3>
+                    <h3 className="font-semibold text-slate-900 text-sm">iPhone (iOS)</h3>
                   </div>
-                  <ol className="space-y-2 text-xs text-slate-400">
+                  <ol className="space-y-2 text-xs text-slate-500">
                     {[
-                      'Abra <strong class="text-white">Ajustes</strong> do iPhone',
-                      'Role até encontrar <strong class="text-white">OwnTracks</strong>',
-                      'Toque em <strong class="text-white">Localização</strong>',
-                      'Selecione <strong class="text-white">Sempre</strong>',
-                      'Ative <strong class="text-white">Localização Precisa</strong>',
+                      'Abra <strong class="text-slate-900">Ajustes</strong> do iPhone',
+                      'Role até encontrar <strong class="text-slate-900">OwnTracks</strong>',
+                      'Toque em <strong class="text-slate-900">Localização</strong>',
+                      'Selecione <strong class="text-slate-900">Sempre</strong>',
+                      'Ative <strong class="text-slate-900">Localização Precisa</strong>',
                     ].map((step, i) => (
                       <li key={i} className="flex gap-2">
-                        <span className="bg-slate-700 text-slate-300 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                        <span className="bg-slate-200 text-slate-600 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
                         <span dangerouslySetInnerHTML={{ __html: step }} />
                       </li>
                     ))}
@@ -1083,18 +1101,18 @@ export default function MapPage() {
                 <Card className="p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-lg">🤖</span>
-                    <h3 className="font-semibold text-white text-sm">Android</h3>
+                    <h3 className="font-semibold text-slate-900 text-sm">Android</h3>
                   </div>
-                  <ol className="space-y-2 text-xs text-slate-400">
+                  <ol className="space-y-2 text-xs text-slate-500">
                     {[
-                      'Abra <strong class="text-white">Configurações</strong> do celular',
-                      'Vá em <strong class="text-white">Aplicativos → OwnTracks</strong>',
-                      'Toque em <strong class="text-white">Permissões → Localização</strong>',
-                      'Selecione <strong class="text-white">Permitir o tempo todo</strong>',
-                      'Em <strong class="text-white">Bateria</strong>, selecione <strong class="text-white">Sem restrições</strong>',
+                      'Abra <strong class="text-slate-900">Configurações</strong> do celular',
+                      'Vá em <strong class="text-slate-900">Aplicativos → OwnTracks</strong>',
+                      'Toque em <strong class="text-slate-900">Permissões → Localização</strong>',
+                      'Selecione <strong class="text-slate-900">Permitir o tempo todo</strong>',
+                      'Em <strong class="text-slate-900">Bateria</strong>, selecione <strong class="text-slate-900">Sem restrições</strong>',
                     ].map((step, i) => (
                       <li key={i} className="flex gap-2">
-                        <span className="bg-slate-700 text-slate-300 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                        <span className="bg-slate-200 text-slate-600 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
                         <span dangerouslySetInnerHTML={{ __html: step }} />
                       </li>
                     ))}
@@ -1102,7 +1120,7 @@ export default function MapPage() {
                 </Card>
               </div>
 
-              <h3 className="font-semibold text-white mb-3 flex items-center gap-2"><Navigation size={16} className="text-amber-400" /> URLs por Funcionário</h3>
+              <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2"><Navigation size={16} className="text-orange-600" /> URLs por Funcionário</h3>
               <div className="space-y-3">
                 {employees.map(emp => {
                   const url = `${API_BASE}/api/gps-ext/${emp.id}?token=${emp.gpsToken ?? ''}`
@@ -1111,26 +1129,27 @@ export default function MapPage() {
                     <Card key={emp.id} className="p-4">
                       <div className="flex justify-between items-start mb-3">
                         <div>
-                          <p className="font-semibold text-white text-sm">{emp.name}</p>
+                          <p className="font-semibold text-slate-900 text-sm">{emp.name}</p>
                           <p className="text-xs text-slate-500">{emp.unit}</p>
                         </div>
                         <Button size="sm" variant={copied ? 'success' : 'secondary'} onClick={() => copyUrl(url)}>
                           {copied ? <><CheckCircle2 size={13} /> Copiado!</> : <><Copy size={13} /> Copiar URL</>}
                         </Button>
                       </div>
-                      <code className="block text-xs text-amber-400 bg-slate-800 rounded-xl px-3 py-2 break-all">{url}</code>
+                      <code className="block text-xs text-orange-600 bg-slate-50 rounded-xl px-3 py-2 break-all">{url}</code>
                     </Card>
                   )
                 })}
               </div>
 
-              <div className="mt-6 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-sm">
-                <p className="font-semibold text-amber-400 mb-1">Dica de bateria</p>
-                <p className="text-amber-400/70 text-xs">Use o modo <strong>Significant</strong> para economizar bateria ou <strong>Move</strong> para rastreamento frequente.</p>
+              <div className="mt-6 bg-orange-50 border border-orange-200 rounded-xl p-4 text-sm">
+                <p className="font-semibold text-orange-600 mb-1">Dica de bateria</p>
+                <p className="text-orange-600/70 text-xs">Use o modo <strong>Significant</strong> para economizar bateria ou <strong>Move</strong> para rastreamento frequente.</p>
               </div>
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   )

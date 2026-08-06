@@ -112,48 +112,48 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
     <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 backdrop-blur-sm" style={{ zIndex: 9999 }}>
       {zoomedPhoto && (
         <div onClick={() => setZoomedPhoto(null)} className="fixed inset-0 bg-black/95 flex items-center justify-center cursor-zoom-out" style={{ zIndex: 10000 }}>
-          <button onClick={() => setZoomedPhoto(null)} className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"><X size={20} /></button>
+          <button onClick={() => setZoomedPhoto(null)} className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-slate-900 hover:bg-white/20 transition-colors"><X size={20} /></button>
           <img src={zoomedPhoto} alt="Foto ampliada" className="max-w-full max-h-full rounded-xl shadow-2xl" />
         </div>
       )}
 
-      <div className="bg-slate-900 border border-slate-700/60 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-        <div className="flex justify-between items-start px-5 py-4 border-b border-slate-800 shrink-0">
+      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+        <div className="flex justify-between items-start px-5 py-4 border-b border-slate-200 shrink-0">
           <div>
-            <h2 className="text-white font-bold text-base">{employee.name}</h2>
+            <h2 className="text-slate-900 font-bold text-base">{employee.name}</h2>
             <div className="flex items-center gap-2 mt-1">
-              <button onClick={goBack} className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+              <button onClick={goBack} className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors">
                 <ChevronLeft size={16} />
               </button>
               <p className="text-slate-500 text-sm">
                 {employee.unit} · {new Date(currentDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
               </p>
               <button onClick={goForward} disabled={currentDate >= TODAY}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                 <ChevronRight size={16} />
               </button>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors">
             <X size={18} />
           </button>
         </div>
 
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
-            <Spinner size="lg" className="text-amber-500" />
+            <Spinner size="lg" className="text-orange-600" />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
             {/* Resumo */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-5 border-b border-slate-800">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-5 border-b border-slate-200">
               {[
-                { label: 'GPS percorrido', value: workDayData ? `${workDayData.totalKm.toFixed(1)} km` : '—', icon: <Navigation size={14} />, color: 'text-blue-400' },
-                { label: 'Tacômetro', value: workDayData?.odometerKm != null ? `${Number(workDayData.odometerKm).toFixed(0)} km` : '—', icon: <Car size={14} />, color: 'text-amber-400' },
-                { label: 'Trabalhado', value: workDayData ? `${Math.floor(workDayData.totalMinutes / 60)}h${String(workDayData.totalMinutes % 60).padStart(2, '0')}m` : '—', icon: <Clock size={14} />, color: 'text-emerald-400' },
+                { label: 'GPS percorrido', value: workDayData ? `${workDayData.totalKm.toFixed(1)} km` : '—', icon: <Navigation size={14} />, color: 'text-blue-600' },
+                { label: 'Tacômetro', value: workDayData?.odometerKm != null ? `${Number(workDayData.odometerKm).toFixed(0)} km` : '—', icon: <Car size={14} />, color: 'text-orange-600' },
+                { label: 'Trabalhado', value: workDayData ? `${Math.floor(workDayData.totalMinutes / 60)}h${String(workDayData.totalMinutes % 60).padStart(2, '0')}m` : '—', icon: <Clock size={14} />, color: 'text-emerald-700' },
                 { label: 'Horas extras', value: extraMinutes > 0 ? `+${Math.floor(extraMinutes / 60)}h${String(extraMinutes % 60).padStart(2, '0')}m` : '—', icon: <Clock size={14} />, color: extraMinutes > 0 ? 'text-yellow-400' : 'text-slate-600' },
               ].map(({ label, value, icon, color }) => (
-                <div key={label} className="bg-slate-800 rounded-xl p-3 text-center">
+                <div key={label} className="bg-slate-50 rounded-xl p-3 text-center">
                   <div className={`flex items-center justify-center gap-1.5 mb-1 ${color}`}>
                     {icon}<span className="font-bold text-lg tabular-nums">{value}</span>
                   </div>
@@ -164,24 +164,24 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
 
             {/* Efetivo vs Não efetivo */}
             {lunchStats && (
-              <div className="px-5 pb-5 border-b border-slate-800">
+              <div className="px-5 pb-5 border-b border-slate-200">
                 <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-3">Efetivo vs Não efetivo</p>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   <div />
-                  <div className="font-semibold text-emerald-400">Efetivo</div>
+                  <div className="font-semibold text-emerald-700">Efetivo</div>
                   <div className="font-semibold text-yellow-400">Não efetivo</div>
                   <div className="text-slate-500 flex items-center gap-1 justify-end"><Clock size={11} /> Tempo</div>
-                  <div className="bg-slate-800 rounded-lg py-1.5 font-bold text-white tabular-nums">
+                  <div className="bg-slate-50 rounded-lg py-1.5 font-bold text-slate-900 tabular-nums">
                     {Math.floor(lunchStats.effectiveMinutes / 60)}h{String(lunchStats.effectiveMinutes % 60).padStart(2, '0')}m
                   </div>
-                  <div className="bg-slate-800 rounded-lg py-1.5 font-bold text-yellow-300 tabular-nums">
+                  <div className="bg-slate-50 rounded-lg py-1.5 font-bold text-yellow-300 tabular-nums">
                     {Math.floor(lunchStats.lunchMinutes / 60)}h{String(lunchStats.lunchMinutes % 60).padStart(2, '0')}m
                   </div>
                   <div className="text-slate-500 flex items-center gap-1 justify-end"><Navigation size={11} /> Km GPS</div>
-                  <div className="bg-slate-800 rounded-lg py-1.5 font-bold text-white tabular-nums">
+                  <div className="bg-slate-50 rounded-lg py-1.5 font-bold text-slate-900 tabular-nums">
                     {Math.max(0, lunchStats.effectiveKm).toFixed(1)} km
                   </div>
-                  <div className="bg-slate-800 rounded-lg py-1.5 font-bold text-yellow-300 tabular-nums">
+                  <div className="bg-slate-50 rounded-lg py-1.5 font-bold text-yellow-300 tabular-nums">
                     {lunchStats.lunchKm.toFixed(1)} km
                   </div>
                 </div>
@@ -190,7 +190,7 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
 
             {/* Mapa */}
             {trail.length > 1 && mapReady && (
-              <div className="p-5 border-b border-slate-800">
+              <div className="p-5 border-b border-slate-200">
                 <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-3 flex items-center gap-2">
                   <MapPin size={12} /> Traçado do dia
                 </p>
@@ -216,20 +216,20 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
                   {PUNCH_TYPES.map(type => {
                     const punch = punches.find((p: any) => p.type === type)
                     return (
-                      <div key={type} className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700">
+                      <div key={type} className="bg-slate-50 rounded-xl overflow-hidden border border-slate-300">
                         {punch?.photoUrl ? (
                           <div className="cursor-zoom-in" onClick={() => setZoomedPhoto(photoUrl(punch.photoUrl))}>
                             <img src={photoUrl(punch.photoUrl)} alt={PUNCH_LABELS[type]} className="w-full object-cover" style={{ height: 100 }} />
                           </div>
                         ) : (
-                          <div className="flex items-center justify-center bg-slate-900 text-slate-700" style={{ height: 100 }}>
+                          <div className="flex items-center justify-center bg-white text-slate-700" style={{ height: 100 }}>
                             <Camera size={24} className="opacity-30" />
                           </div>
                         )}
                         <div className="p-2.5">
                           <Badge variant={PUNCH_BADGE[type]}>{PUNCH_LABELS[type]}</Badge>
                           {punch ? (
-                            <p className="text-white font-mono text-sm font-bold mt-1.5 tabular-nums">{fmt(punch.timestamp)}</p>
+                            <p className="text-slate-900 font-mono text-sm font-bold mt-1.5 tabular-nums">{fmt(punch.timestamp)}</p>
                           ) : (
                             <p className="text-slate-600 text-xs mt-1.5">Não registrado</p>
                           )}
@@ -247,7 +247,7 @@ export default function EmployeeDayModal({ employee, date, onClose }: Props) {
                 <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-3 flex items-center gap-2">
                   <Car size={12} /> Foto do tacômetro
                 </p>
-                <div className="cursor-zoom-in inline-block rounded-xl overflow-hidden border border-slate-700"
+                <div className="cursor-zoom-in inline-block rounded-xl overflow-hidden border border-slate-300"
                   onClick={() => setZoomedPhoto(photoUrl(workDayData.odometerPhotoUrl!))}>
                   <img src={photoUrl(workDayData.odometerPhotoUrl!)} alt="Tacômetro" className="max-h-40 object-contain" />
                 </div>

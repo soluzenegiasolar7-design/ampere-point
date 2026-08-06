@@ -39,9 +39,9 @@ const ODO_WORKDAY_FIELD: Record<OdoPhase, { km: string; photo: string }> = {
 }
 
 const PUNCH_CONFIG: Record<PunchType, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-  ENTRADA:        { label: 'Registrar Entrada',  color: 'text-emerald-400', bg: 'bg-emerald-500',  icon: <CheckCircle2 size={22} /> },
-  SAIDA_ALMOCO:   { label: 'Saída para Almoço',  color: 'text-amber-400',   bg: 'bg-amber-500',    icon: <Clock size={22} /> },
-  RETORNO_ALMOCO: { label: 'Retorno do Almoço',  color: 'text-blue-400',    bg: 'bg-blue-500',     icon: <RefreshCw size={22} /> },
+  ENTRADA:        { label: 'Registrar Entrada',  color: 'text-emerald-700', bg: 'bg-emerald-600',  icon: <CheckCircle2 size={22} /> },
+  SAIDA_ALMOCO:   { label: 'Saída para Almoço',  color: 'text-orange-600',   bg: 'bg-orange-600',    icon: <Clock size={22} /> },
+  RETORNO_ALMOCO: { label: 'Retorno do Almoço',  color: 'text-blue-600',    bg: 'bg-blue-600',     icon: <RefreshCw size={22} /> },
   SAIDA:          { label: 'Registrar Saída',    color: 'text-rose-400',    bg: 'bg-rose-500',     icon: <LogOut size={22} /> },
 }
 
@@ -359,28 +359,28 @@ export default function PunchPage() {
     : type
 
   if (dataLoading) return (
-    <div className="min-h-screen bg-[#080c14] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3 text-slate-400">
-        <Spinner size="lg" className="text-amber-500" />
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3 text-slate-500">
+        <Spinner size="lg" className="text-orange-600" />
         <p className="text-sm">Carregando...</p>
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-[#080c14] text-white pb-8">
+    <div className="min-h-screen bg-slate-100 text-slate-900 pb-8">
       {/* Header */}
-      <header className="bg-slate-900/80 border-b border-slate-800 px-4 py-3 flex items-center justify-between backdrop-blur-sm sticky top-0 z-20">
+      <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between backdrop-blur-sm sticky top-0 z-20">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
-            <Zap size={18} className="text-gray-950 fill-gray-950" />
+          <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
+            <Zap size={18} className="text-white fill-white" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-white leading-none">{user?.name}</p>
+            <p className="text-sm font-semibold text-slate-900 leading-none">{user?.name}</p>
             <p className="text-xs text-slate-500 mt-0.5">{user?.unit}</p>
           </div>
         </div>
-        <button onClick={logout} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-400 transition-colors px-2 py-1.5 rounded-lg hover:bg-red-500/10">
+        <button onClick={logout} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600 transition-colors px-2 py-1.5 rounded-lg hover:bg-red-50">
           <LogOut size={14} />
           Sair
         </button>
@@ -389,7 +389,7 @@ export default function PunchPage() {
       <div className="max-w-md mx-auto px-4 pt-6 space-y-4">
         {/* Relógio */}
         <div className="text-center py-2">
-          <p className="text-5xl font-bold text-white tabular-nums tracking-tight">
+          <p className="text-5xl font-bold text-slate-900 tabular-nums tracking-tight">
             {now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </p>
           <p className="text-slate-500 text-sm mt-2 capitalize">
@@ -401,8 +401,8 @@ export default function PunchPage() {
         {toast && (
           <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium border ${
             toast.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-              : 'bg-red-500/10 border-red-500/20 text-red-400'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : 'bg-red-50 border-red-200 text-red-600'
           }`}>
             {toast.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
             {toast.msg}
@@ -413,26 +413,26 @@ export default function PunchPage() {
         {nextPunch ? (
           <button
             onClick={handlePunchClick}
-            className={`w-full py-5 rounded-2xl text-white font-bold text-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg ${PUNCH_CONFIG[nextPunch].bg} hover:opacity-90`}
+            className={`w-full py-5 rounded-2xl text-slate-900 font-bold text-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg ${PUNCH_CONFIG[nextPunch].bg} hover:opacity-90`}
           >
             {PUNCH_CONFIG[nextPunch].icon}
             {PUNCH_CONFIG[nextPunch].label}
             <ChevronRight size={20} className="ml-auto opacity-70" />
           </button>
         ) : (
-          <div className="w-full py-5 rounded-2xl bg-slate-800/50 border border-slate-700 flex items-center justify-center gap-3 text-slate-400">
-            <CheckCircle2 size={22} className="text-emerald-500" />
+          <div className="w-full py-5 rounded-2xl bg-slate-50 border border-slate-300 flex items-center justify-center gap-3 text-slate-500">
+            <CheckCircle2 size={22} className="text-emerald-700" />
             <span className="font-semibold">Expediente encerrado</span>
           </div>
         )}
 
         {/* GPS ativo */}
         {isWorking && (
-          <div className="flex items-center gap-3 bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3">
-            <Navigation size={18} className="text-blue-400 animate-pulse shrink-0" />
+          <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+            <Navigation size={18} className="text-blue-600 animate-pulse shrink-0" />
             <div>
-              <p className="text-blue-300 text-xs font-semibold">Rastreamento GPS ativo</p>
-              <p className="text-blue-500/70 text-xs">Mantenha o app aberto durante o trabalho</p>
+              <p className="text-blue-700 text-xs font-semibold">Rastreamento GPS ativo</p>
+              <p className="text-blue-600/70 text-xs">Mantenha o app aberto durante o trabalho</p>
             </div>
           </div>
         )}
@@ -440,8 +440,8 @@ export default function PunchPage() {
         {/* Métricas do dia */}
         {workDay && entries.length > 0 && (
           <Card className="p-4 text-center">
-            <Clock size={16} className="text-emerald-400 mx-auto mb-1" />
-            <p className="text-xl font-bold text-emerald-400">
+            <Clock size={16} className="text-emerald-700 mx-auto mb-1" />
+            <p className="text-xl font-bold text-emerald-700">
               {Math.floor(workDay.totalMinutes / 60)}h{String(workDay.totalMinutes % 60).padStart(2, '0')}m
             </p>
             <p className="text-xs text-slate-500 mt-0.5">Tempo trabalhado</p>
@@ -452,8 +452,8 @@ export default function PunchPage() {
         {entries.length > 0 && (
           <Card className="p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Car size={16} className="text-amber-400" />
-              <span className="text-sm font-semibold text-slate-200">Quilometragem do dia</span>
+              <Car size={16} className="text-orange-600" />
+              <span className="text-sm font-semibold text-slate-700">Quilometragem do dia</span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -469,7 +469,7 @@ export default function PunchPage() {
                     </div>
                     {km != null ? (
                       <>
-                        <div className="bg-slate-800 rounded-xl p-3 text-center mb-2">
+                        <div className="bg-slate-50 rounded-xl p-3 text-center mb-2">
                           <p className="text-purple-400 font-bold text-xl">{Number(km).toFixed(0)} km</p>
                         </div>
                         {photo && (
@@ -477,7 +477,7 @@ export default function PunchPage() {
                         )}
                         <button
                           onClick={() => { setOdoPhase(phase); isPrePunchOdo.current = false; setOdoKm(String(km)); setOdoPhotoBlob(null); setStep('odo-form') }}
-                          className="w-full py-2 text-xs text-slate-500 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+                          className="w-full py-2 text-xs text-slate-500 hover:text-slate-900 bg-slate-50 hover:bg-slate-200 rounded-lg transition-colors"
                         >
                           Atualizar
                         </button>
@@ -485,7 +485,7 @@ export default function PunchPage() {
                     ) : (
                       <button
                         onClick={() => { setOdoPhase(phase); isPrePunchOdo.current = false; setOdoKm(''); setOdoPhotoBlob(null); setStep('odo-form') }}
-                        className="w-full py-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 border-dashed rounded-xl text-slate-400 hover:text-white transition-colors text-xs flex flex-col items-center justify-center gap-1"
+                        className="w-full py-4 bg-slate-50 hover:bg-slate-200 border border-slate-300 border-dashed rounded-xl text-slate-500 hover:text-slate-900 transition-colors text-xs flex flex-col items-center justify-center gap-1"
                       >
                         <Camera size={14} /> Registrar
                       </button>
@@ -496,9 +496,9 @@ export default function PunchPage() {
             </div>
 
             {workDay?.odometerKmEntrada != null && workDay?.odometerKm != null && (
-              <div className="mt-3 bg-slate-800 rounded-xl px-4 py-3 flex items-center justify-between">
+              <div className="mt-3 bg-slate-50 rounded-xl px-4 py-3 flex items-center justify-between">
                 <span className="text-xs text-slate-500 uppercase tracking-wide">Km rodados no dia</span>
-                <span className="text-amber-400 font-bold text-lg">
+                <span className="text-orange-600 font-bold text-lg">
                   {Math.max(0, Number(workDay.odometerKm) - Number(workDay.odometerKmEntrada)).toFixed(0)} km
                 </span>
               </div>
@@ -508,7 +508,7 @@ export default function PunchPage() {
 
         {/* Histórico do dia */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-slate-600 mb-3 flex items-center gap-2">
             <Clock size={15} className="text-slate-500" /> Pontos de hoje
           </h3>
           {entries.length === 0 ? (
@@ -523,7 +523,7 @@ export default function PunchPage() {
                     </Badge>
                     {e.photoUrl && <span className="text-xs text-slate-600 flex items-center gap-1"><Camera size={11} /> foto</span>}
                   </div>
-                  <span className="text-emerald-400 font-mono font-bold text-sm tabular-nums">{fmt(e.timestamp)}</span>
+                  <span className="text-emerald-700 font-mono font-bold text-sm tabular-nums">{fmt(e.timestamp)}</span>
                 </div>
               ))}
             </div>
@@ -536,8 +536,8 @@ export default function PunchPage() {
             onClick={() => { const opening = !meusDadosOpen; setMeusDadosOpen(opening); if (opening) loadHRData() }}
             className="w-full flex items-center justify-between"
           >
-            <span className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-              <FileText size={15} className="text-amber-400" /> Meus Dados
+            <span className="text-sm font-semibold text-slate-600 flex items-center gap-2">
+              <FileText size={15} className="text-orange-600" /> Meus Dados
             </span>
             <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${meusDadosOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -546,7 +546,7 @@ export default function PunchPage() {
             <div className="mt-4 space-y-5">
               {hrLoading ? (
                 <div className="flex justify-center py-4">
-                  <Spinner size="lg" className="text-amber-500" />
+                  <Spinner size="lg" className="text-orange-600" />
                 </div>
               ) : (
                 <>
@@ -556,24 +556,24 @@ export default function PunchPage() {
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
                         <TrendingUp size={13} /> Banco de Horas (acumulado)
                       </p>
-                      <div className="bg-slate-800 rounded-xl px-4 py-3 flex items-center justify-between">
+                      <div className="bg-slate-50 rounded-xl px-4 py-3 flex items-center justify-between">
                         <div>
                           <p className="text-xs text-slate-500">Trabalhado</p>
-                          <p className="text-white font-bold text-sm">{hourBank.totalWorkedHours}h</p>
+                          <p className="text-slate-900 font-bold text-sm">{hourBank.totalWorkedHours}h</p>
                         </div>
                         <div className="text-center">
                           <p className="text-xs text-slate-500">Esperado</p>
-                          <p className="text-white font-bold text-sm">{hourBank.totalExpectedHours}h</p>
+                          <p className="text-slate-900 font-bold text-sm">{hourBank.totalExpectedHours}h</p>
                         </div>
                         <div className="text-right">
                           <p className="text-xs text-slate-500">Saldo</p>
-                          <p className={`text-xl font-bold ${hourBank.balanceHours >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          <p className={`text-xl font-bold ${hourBank.balanceHours >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
                             {hourBank.balanceLabel}
                           </p>
                         </div>
                       </div>
                       {hourBank.expiringMinutes > 0 && (
-                        <p className="text-xs text-amber-400 mt-2">
+                        <p className="text-xs text-orange-600 mt-2">
                           ⚠ {hourBank.expiringHours}h do seu saldo estão há mais de {hourBank.windowMonths} meses sem compensar
                         </p>
                       )}
@@ -581,12 +581,12 @@ export default function PunchPage() {
                         <div className="mt-3 space-y-1.5">
                           <p className="text-xs text-slate-500">Extrato</p>
                           {hourBankEntries.slice(0, 10).map((entry: any) => (
-                            <div key={entry.id} className="flex items-center justify-between bg-slate-800/60 rounded-lg px-3 py-2">
+                            <div key={entry.id} className="flex items-center justify-between bg-slate-100 rounded-lg px-3 py-2">
                               <div>
-                                <p className="text-xs text-slate-300">{hourBankEntryLabel(entry.type)}</p>
+                                <p className="text-xs text-slate-600">{hourBankEntryLabel(entry.type)}</p>
                                 <p className="text-xs text-slate-500">{fmtDate(entry.date)}{entry.reason ? ` · ${entry.reason}` : ''}</p>
                               </div>
-                              <span className={`text-xs font-bold ${entry.minutes >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              <span className={`text-xs font-bold ${entry.minutes >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
                                 {entry.minutes >= 0 ? '+' : ''}{(entry.minutes / 60).toFixed(1)}h
                               </span>
                             </div>
@@ -606,11 +606,11 @@ export default function PunchPage() {
                     ) : (
                       <div className="space-y-2">
                         {payslips.map((p: any) => (
-                          <div key={p.id} className="flex items-center justify-between bg-slate-800 rounded-xl px-4 py-3">
-                            <span className="text-sm text-slate-300">{MONTHS[p.month - 1]} / {p.year}</span>
+                          <div key={p.id} className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
+                            <span className="text-sm text-slate-600">{MONTHS[p.month - 1]} / {p.year}</span>
                             <button
                               onClick={() => downloadPayslip(p.id, p.fileName)}
-                              className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+                              className="flex items-center gap-1.5 text-xs text-orange-600 hover:text-orange-600 transition-colors"
                             >
                               <Download size={13} /> Baixar
                             </button>
@@ -628,20 +628,20 @@ export default function PunchPage() {
                     <form onSubmit={submitAdjustment} className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs text-slate-400 block mb-1.5">Data *</label>
+                          <label className="text-xs text-slate-500 block mb-1.5">Data *</label>
                           <input
                             type="date" required
                             value={adjustForm.date}
                             onChange={e => setAdjustForm(f => ({ ...f, date: e.target.value }))}
-                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-colors"
+                            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 transition-colors"
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-slate-400 block mb-1.5">Tipo *</label>
+                          <label className="text-xs text-slate-500 block mb-1.5">Tipo *</label>
                           <select
                             value={adjustForm.punchType}
                             onChange={e => setAdjustForm(f => ({ ...f, punchType: e.target.value }))}
-                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-colors"
+                            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 transition-colors"
                           >
                             <option value="ENTRADA">Entrada</option>
                             <option value="SAIDA_ALMOCO">Saída Almoço</option>
@@ -651,22 +651,22 @@ export default function PunchPage() {
                         </div>
                       </div>
                       <div>
-                        <label className="text-xs text-slate-400 block mb-1.5">Horário correto *</label>
+                        <label className="text-xs text-slate-500 block mb-1.5">Horário correto *</label>
                         <input
                           type="time" required
                           value={adjustForm.requestedTime}
                           onChange={e => setAdjustForm(f => ({ ...f, requestedTime: e.target.value }))}
-                          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-colors"
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 transition-colors"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-slate-400 block mb-1.5">Motivo * <span className="text-slate-600">(mín. 10 caracteres)</span></label>
+                        <label className="text-xs text-slate-500 block mb-1.5">Motivo * <span className="text-slate-600">(mín. 10 caracteres)</span></label>
                         <textarea
                           required minLength={10} rows={2}
                           value={adjustForm.reason}
                           onChange={e => setAdjustForm(f => ({ ...f, reason: e.target.value }))}
                           placeholder="Descreva o motivo do ajuste..."
-                          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-colors resize-none placeholder-slate-600"
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 transition-colors resize-none placeholder-slate-400"
                         />
                       </div>
                       <Button type="submit" fullWidth loading={adjustLoading} size="sm">
@@ -726,51 +726,51 @@ export default function PunchPage() {
 
       {/* ── MODAL ODÔMETRO FORMULÁRIO ── */}
       {step === 'odo-form' && (
-        <div className="fixed inset-0 bg-[#080c14] z-50 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/80">
+        <div className="fixed inset-0 bg-slate-100 z-50 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white">
             <div>
-              <p className="text-white font-bold flex items-center gap-2">
-                <Car size={18} className="text-amber-400" />
+              <p className="text-slate-900 font-bold flex items-center gap-2">
+                <Car size={18} className="text-orange-600" />
                 Quilometragem na {ODO_PHASE_LABEL[odoPhase].title}
-                {isPrePunchOdo.current && <span className="text-amber-500/70 font-normal text-sm">— Passo 1 de 2</span>}
+                {isPrePunchOdo.current && <span className="text-orange-600/70 font-normal text-sm">— Passo 1 de 2</span>}
               </p>
               {isPrePunchOdo.current && (
-                <p className="text-amber-500/80 text-xs mt-0.5">
+                <p className="text-orange-600/80 text-xs mt-0.5">
                   Informe os km antes de registrar {ODO_PHASE_LABEL[odoPhase].title}
                 </p>
               )}
             </div>
-            <button onClick={cancelFlow} className="p-2 rounded-full hover:bg-slate-700 text-slate-400 transition-colors"><X size={18} /></button>
+            <button onClick={cancelFlow} className="p-2 rounded-full hover:bg-slate-200 text-slate-500 transition-colors"><X size={18} /></button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
             {toast?.type === 'error' && (
-              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl p-3 text-sm">
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-xl p-3 text-sm">
                 <AlertCircle size={15} /> {toast.msg}
               </div>
             )}
 
             <div>
-              <label className="text-sm font-medium text-slate-400 block mb-2">
+              <label className="text-sm font-medium text-slate-500 block mb-2">
                 Km {ODO_PHASE_LABEL[odoPhase].kmLabel} *
               </label>
               <input
                 type="number" inputMode="decimal" placeholder="Ex: 120"
                 value={odoKm} onChange={e => setOdoKm(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-5 text-white text-3xl font-bold placeholder-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 text-center transition-colors"
+                className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-4 py-5 text-slate-900 text-3xl font-bold placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 text-center transition-colors"
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-400 block mb-2">Foto do odômetro <span className="text-slate-600">(opcional)</span></label>
+              <label className="text-sm font-medium text-slate-500 block mb-2">Foto do odômetro <span className="text-slate-600">(opcional)</span></label>
               {odoPhotoBlob ? (
-                <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
-                  <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
-                  <p className="flex-1 text-emerald-400 text-sm font-medium">Foto capturada</p>
-                  <button onClick={openOdoCamera} className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-slate-700 transition-colors">Refazer</button>
+                <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                  <CheckCircle2 size={18} className="text-emerald-700 shrink-0" />
+                  <p className="flex-1 text-emerald-700 text-sm font-medium">Foto capturada</p>
+                  <button onClick={openOdoCamera} className="text-xs text-slate-500 hover:text-slate-900 px-2 py-1 rounded-lg hover:bg-slate-200 transition-colors">Refazer</button>
                 </div>
               ) : (
-                <button onClick={openOdoCamera} className="w-full py-5 bg-slate-800 hover:bg-slate-700 border border-slate-700 border-dashed rounded-xl text-slate-400 hover:text-white transition-colors flex items-center justify-center gap-2 text-sm">
+                <button onClick={openOdoCamera} className="w-full py-5 bg-slate-50 hover:bg-slate-200 border border-slate-300 border-dashed rounded-xl text-slate-500 hover:text-slate-900 transition-colors flex items-center justify-center gap-2 text-sm">
                   <Camera size={18} /> Tirar foto do odômetro
                 </button>
               )}

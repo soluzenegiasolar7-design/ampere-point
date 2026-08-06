@@ -9,8 +9,8 @@ interface Props {
   onCreated: () => void
 }
 
-const labelCls = 'text-xs font-medium text-slate-400 block mb-1.5'
-const selectCls = 'w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-colors'
+const labelCls = 'text-xs font-medium text-slate-500 block mb-1.5'
+const selectCls = 'w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 transition-colors'
 
 export default function NewEmployeeModal({ onClose, onCreated }: Props) {
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'EMPLOYEE', unit: 'Natal', phone: '', cpf: '', pis: '', hireDate: '', contractHours: '8' })
@@ -40,14 +40,14 @@ export default function NewEmployeeModal({ onClose, onCreated }: Props) {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/85 backdrop-blur-sm" style={{ zIndex: 9999 }} onClick={onClose}>
-      <div className="bg-slate-900 border border-slate-700/60 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5">
-          <h2 className="text-base font-bold text-white flex items-center gap-2"><UserPlus size={18} className="text-amber-400" /> Novo Funcionário</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"><X size={18} /></button>
+          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2"><UserPlus size={18} className="text-orange-600" /> Novo Funcionário</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors"><X size={18} /></button>
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl p-3 mb-4">
+          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl p-3 mb-4">
             <AlertCircle size={15} className="shrink-0" /> {error}
           </div>
         )}
