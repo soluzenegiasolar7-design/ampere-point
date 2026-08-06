@@ -597,28 +597,40 @@ export default function HRPanel({ employees }: Props) {
             <Button type="submit" size="sm" loading={bankAdjLoading}>Lançar Ajuste</Button>
           </form>
 
-          <div className="space-y-2">
-            {hourBank.map((hb: any) => (
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+            <Clock size={13} /> Saldo do Banco de Horas
+          </p>
+          <div className="space-y-1">
+            {[...hourBank]
+              .sort((a: any, b: any) => {
+                if (a.balanceHours > 0 && b.balanceHours > 0) return b.balanceHours - a.balanceHours
+                if (a.balanceHours < 0 && b.balanceHours < 0) return a.balanceHours - b.balanceHours
+                if (a.balanceHours === 0 && b.balanceHours === 0) return 0
+                if (a.balanceHours === 0) return 1
+                if (b.balanceHours === 0) return -1
+                return b.balanceHours - a.balanceHours
+              })
+              .map((hb: any) => (
               <div key={hb.userId} className="bg-slate-800/40 rounded-xl overflow-hidden">
                 <button type="button" onClick={() => toggleBankEntries(hb.userId)}
-                  className="w-full flex items-center justify-between p-3 text-left hover:bg-slate-800/70 transition-colors">
-                  <div>
-                    <p className="text-sm font-medium text-white">{hb.name}</p>
-                    <p className="text-xs text-slate-400">
-                      {hb.workedDays} dias · {hb.totalWorkedHours}h trabalhadas · {hb.totalExpectedHours}h esperadas
-                    </p>
-                    {hb.expiringMinutes > 0 && (
-                      <p className="text-xs text-amber-400 mt-1">
-                        ⚠ {hb.expiringHours}h com mais de {hb.windowMonths} meses sem compensar
-                      </p>
-                    )}
-                  </div>
-                  <span className={`text-sm font-bold ${hb.balanceHours >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {hb.balanceLabel}
+                  className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-slate-800/70 transition-colors">
+                  <span className="text-xs font-semibold uppercase text-slate-200 tracking-wide">{hb.name}</span>
+                  <span className={`text-sm font-bold tabular-nums ${
+                    hb.balanceHours > 0 ? 'text-emerald-400' : hb.balanceHours < 0 ? 'text-red-400' : 'text-slate-400'
+                  }`}>
+                    {hb.balanceHours === 0 ? '0' : `${hb.balanceHours.toFixed(2)}h`}
                   </span>
                 </button>
                 {bankExpandedUserId === hb.userId && (
                   <div className="border-t border-slate-700/50 p-3 space-y-2">
+                    <p className="text-xs text-slate-400">
+                      {hb.workedDays} dias · {hb.totalWorkedHours}h trabalhadas · {hb.totalExpectedHours}h esperadas
+                    </p>
+                    {hb.expiringMinutes > 0 && (
+                      <p className="text-xs text-amber-400">
+                        ⚠ {hb.expiringHours}h com mais de {hb.windowMonths} meses sem compensar
+                      </p>
+                    )}
                     {bankEntriesLoading && <div className="flex justify-center py-4"><Spinner /></div>}
                     {!bankEntriesLoading && bankEntries.map((entry: any) => (
                       <div key={entry.id} className="flex items-center justify-between bg-slate-900/40 rounded-lg px-3 py-2">
