@@ -120,6 +120,7 @@ export default function PunchPage() {
   const [meusDadosOpen, setMeusDadosOpen] = useState(false)
   const [payslips, setPayslips] = useState<any[]>([])
   const [hourBank, setHourBank] = useState<any>(null)
+  const [hourBankEntries, setHourBankEntries] = useState<any[]>([])
   const [hrLoading, setHrLoading] = useState(false)
   const [adjustForm, setAdjustForm] = useState({ date: '', punchType: 'ENTRADA', requestedTime: '', reason: '' })
   const [adjustLoading, setAdjustLoading] = useState(false)
@@ -177,12 +178,14 @@ export default function PunchPage() {
   const loadHRData = useCallback(async () => {
     setHrLoading(true)
     try {
-      const [payslipsRes, hourBankRes] = await Promise.all([
+      const [payslipsRes, hourBankRes, hourBankEntriesRes] = await Promise.all([
         api.get('/api/payslips/my'),
         api.get('/api/hour-bank/my'),
+        api.get('/api/hour-bank/my/entries'),
       ])
       setPayslips(payslipsRes.data)
       setHourBank(hourBankRes.data)
+      setHourBankEntries(hourBankEntriesRes.data)
     } catch {
       // silent — toast only if user explicitly retries
     } finally {
@@ -348,6 +351,12 @@ export default function PunchPage() {
   }
 
   const fmt = (ts: string) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('pt-BR')
+  const hourBankEntryLabel = (type: string) =>
+    type === 'DAYOFF_DEBIT' ? 'Folga aprovada'
+    : type === 'MANUAL_CREDIT' ? 'Ajuste (crédito)'
+    : type === 'MANUAL_DEBIT' ? 'Ajuste (débito)'
+    : type
 
   if (dataLoading) return (
     <div className="min-h-screen bg-[#080c14] flex items-center justify-center">
@@ -545,7 +554,7 @@ export default function PunchPage() {
                   {hourBank && (
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                        <TrendingUp size={13} /> Banco de Horas (mês atual)
+                        <TrendingUp size={13} /> Banco de Horas (acumulado)
                       </p>
                       <div className="bg-slate-800 rounded-xl px-4 py-3 flex items-center justify-between">
                         <div>
@@ -563,6 +572,27 @@ export default function PunchPage() {
                           </p>
                         </div>
                       </div>
+                      {hourBank.expiringMinutes > 0 && (
+                        <p className="text-xs text-amber-400 mt-2">
+                          ⚠ {hourBank.expiringHours}h do seu saldo estão há mais de {hourBank.windowMonths} meses sem compensar
+                        </p>
+                      )}
+                      {hourBankEntries.length > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          <p className="text-xs text-slate-500">Extrato</p>
+                          {hourBankEntries.slice(0, 10).map((entry: any) => (
+                            <div key={entry.id} className="flex items-center justify-between bg-slate-800/60 rounded-lg px-3 py-2">
+                              <div>
+                                <p className="text-xs text-slate-300">{hourBankEntryLabel(entry.type)}</p>
+                                <p className="text-xs text-slate-500">{fmtDate(entry.date)}{entry.reason ? ` · ${entry.reason}` : ''}</p>
+                              </div>
+                              <span className={`text-xs font-bold ${entry.minutes >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {entry.minutes >= 0 ? '+' : ''}{(entry.minutes / 60).toFixed(1)}h
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 

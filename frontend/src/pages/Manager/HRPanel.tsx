@@ -78,6 +78,14 @@ export default function HRPanel({ employees }: Props) {
     const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10)
   })
   const [bankTo, setBankTo] = useState(() => new Date().toISOString().slice(0, 10))
+  const [bankAdjUserId, setBankAdjUserId] = useState('')
+  const [bankAdjHours, setBankAdjHours] = useState('')
+  const [bankAdjDate, setBankAdjDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [bankAdjReason, setBankAdjReason] = useState('')
+  const [bankAdjLoading, setBankAdjLoading] = useState(false)
+  const [bankExpandedUserId, setBankExpandedUserId] = useState<string | null>(null)
+  const [bankEntries, setBankEntries] = useState<any[]>([])
+  const [bankEntriesLoading, setBankEntriesLoading] = useState(false)
 
   useEffect(() => { loadTab() }, [tab, adjFilter])
 
@@ -181,6 +189,49 @@ export default function HRPanel({ employees }: Props) {
   async function reviewItem(endpoint: string, id: string, status: 'APPROVED' | 'REJECTED') {
     try {
       await api.patch(`${endpoint}/${id}/review`, { status })
+      loadTab()
+    } catch {}
+  }
+
+  function entryTypeLabel(type: string) {
+    if (type === 'DAYOFF_DEBIT') return 'Folga aprovada'
+    if (type === 'MANUAL_CREDIT') return 'Ajuste manual (crédito)'
+    if (type === 'MANUAL_DEBIT') return 'Ajuste manual (débito)'
+    return type
+  }
+
+  async function createBankAdjustment(e: React.FormEvent) {
+    e.preventDefault()
+    if (!bankAdjUserId || !bankAdjHours || !bankAdjReason) return
+    setBankAdjLoading(true)
+    try {
+      await api.post('/api/hour-bank/adjustments', {
+        userId: bankAdjUserId,
+        minutes: Math.round(Number(bankAdjHours) * 60),
+        date: bankAdjDate,
+        reason: bankAdjReason,
+      })
+      setBankAdjHours(''); setBankAdjReason('')
+      loadTab()
+      if (bankExpandedUserId === bankAdjUserId) toggleBankEntries(bankAdjUserId, true)
+    } catch {} finally { setBankAdjLoading(false) }
+  }
+
+  async function toggleBankEntries(userId: string, forceReload = false) {
+    if (bankExpandedUserId === userId && !forceReload) { setBankExpandedUserId(null); return }
+    setBankExpandedUserId(userId)
+    setBankEntriesLoading(true)
+    try {
+      const r = await api.get(`/api/hour-bank/entries?userId=${userId}`)
+      setBankEntries(r.data)
+    } catch {} finally { setBankEntriesLoading(false) }
+  }
+
+  async function removeBankEntry(id: string) {
+    if (!window.confirm('Remover este ajuste manual?')) return
+    try {
+      await api.delete(`/api/hour-bank/entries/${id}`)
+      setBankEntries(prev => prev.filter(e => e.id !== id))
       loadTab()
     } catch {}
   }
@@ -520,18 +571,79 @@ export default function HRPanel({ employees }: Props) {
             </div>
             <Button size="sm" onClick={loadTab}>Atualizar</Button>
           </div>
+
+          <form onSubmit={createBankAdjustment} className="bg-slate-800/50 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-white">Lançar Ajuste Manual</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>Funcionário</label>
+                <select value={bankAdjUserId} onChange={e => setBankAdjUserId(e.target.value)} className={inputCls} required>
+                  <option value="">Selecionar...</option>
+                  {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Horas (+/-)</label>
+                <input type="number" step="0.5" placeholder="ex: -2 ou 3.5" value={bankAdjHours}
+                  onChange={e => setBankAdjHours(e.target.value)} className={inputCls} required />
+              </div>
+              <div>
+                <label className={labelCls}>Data</label>
+                <input type="date" value={bankAdjDate} onChange={e => setBankAdjDate(e.target.value)} className={inputCls} required />
+              </div>
+            </div>
+            <input type="text" placeholder="Motivo do ajuste" value={bankAdjReason}
+              onChange={e => setBankAdjReason(e.target.value)} className={inputCls} required minLength={5} />
+            <Button type="submit" size="sm" loading={bankAdjLoading}>Lançar Ajuste</Button>
+          </form>
+
           <div className="space-y-2">
             {hourBank.map((hb: any) => (
-              <div key={hb.userId} className="flex items-center justify-between bg-slate-800/40 rounded-xl p-3">
-                <div>
-                  <p className="text-sm font-medium text-white">{hb.name}</p>
-                  <p className="text-xs text-slate-400">
-                    {hb.workedDays} dias · {hb.totalWorkedHours}h trabalhadas · {hb.totalExpectedHours}h esperadas
-                  </p>
-                </div>
-                <span className={`text-sm font-bold ${hb.balanceHours >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {hb.balanceLabel}
-                </span>
+              <div key={hb.userId} className="bg-slate-800/40 rounded-xl overflow-hidden">
+                <button type="button" onClick={() => toggleBankEntries(hb.userId)}
+                  className="w-full flex items-center justify-between p-3 text-left hover:bg-slate-800/70 transition-colors">
+                  <div>
+                    <p className="text-sm font-medium text-white">{hb.name}</p>
+                    <p className="text-xs text-slate-400">
+                      {hb.workedDays} dias · {hb.totalWorkedHours}h trabalhadas · {hb.totalExpectedHours}h esperadas
+                    </p>
+                    {hb.expiringMinutes > 0 && (
+                      <p className="text-xs text-amber-400 mt-1">
+                        ⚠ {hb.expiringHours}h com mais de {hb.windowMonths} meses sem compensar
+                      </p>
+                    )}
+                  </div>
+                  <span className={`text-sm font-bold ${hb.balanceHours >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {hb.balanceLabel}
+                  </span>
+                </button>
+                {bankExpandedUserId === hb.userId && (
+                  <div className="border-t border-slate-700/50 p-3 space-y-2">
+                    {bankEntriesLoading && <div className="flex justify-center py-4"><Spinner /></div>}
+                    {!bankEntriesLoading && bankEntries.map((entry: any) => (
+                      <div key={entry.id} className="flex items-center justify-between bg-slate-900/40 rounded-lg px-3 py-2">
+                        <div>
+                          <p className="text-xs text-slate-300">{entryTypeLabel(entry.type)}</p>
+                          <p className="text-xs text-slate-500">{fmtDate(entry.date)}{entry.reason ? ` · ${entry.reason}` : ''}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-bold ${entry.minutes >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {entry.minutes >= 0 ? '+' : ''}{(entry.minutes / 60).toFixed(1)}h
+                          </span>
+                          {entry.type !== 'DAYOFF_DEBIT' && (
+                            <button onClick={() => removeBankEntry(entry.id)}
+                              className="p-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors">
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {!bankEntriesLoading && bankEntries.length === 0 && (
+                      <p className="text-slate-500 text-xs text-center py-3">Nenhum lançamento no extrato</p>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
             {hourBank.length === 0 && <p className="text-slate-500 text-sm text-center py-6">Nenhum dado para o período</p>}

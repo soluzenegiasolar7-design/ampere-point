@@ -38,6 +38,12 @@ enum AbsenceType {
   ABONADA
 }
 
+enum HourBankEntryType {
+  DAYOFF_DEBIT
+  MANUAL_CREDIT
+  MANUAL_DEBIT
+}
+
 model User {
   id              String           @id @default(uuid())
   name            String
@@ -62,6 +68,7 @@ model User {
   vacations       Vacation[]
   dayOffs         DayOff[]
   timeAdjustments TimeAdjustment[]
+  hourBankEntries HourBankEntry[]
 
   @@map("users")
 }
@@ -213,4 +220,20 @@ model DayOff {
 
   @@unique([userId, date])
   @@map("day_offs")
+}
+
+model HourBankEntry {
+  id        String            @id @default(uuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id])
+  type      HourBankEntryType
+  minutes   Int
+  date      DateTime
+  reference String?
+  reason    String?
+  createdBy String?
+  createdAt DateTime          @default(now())
+
+  @@index([userId, date])
+  @@map("hour_bank_entries")
 }

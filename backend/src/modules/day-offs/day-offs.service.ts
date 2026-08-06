@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database'
 import { RequestStatus } from '@prisma/client'
 import { AppError } from '../../shared/errors/AppError'
+import { syncDayOffDebit } from '../hour-bank/hour-bank.service'
 
 export async function createDayOff(data: { userId: string; date: Date; reason?: string }) {
   return prisma.dayOff.upsert({
@@ -38,9 +39,11 @@ export async function listUserDayOffs(userId: string) {
 export async function reviewDayOff(id: string, reviewedBy: string, status: RequestStatus) {
   const dayOff = await prisma.dayOff.findUnique({ where: { id } })
   if (!dayOff) throw new AppError('Folga não encontrada', 404)
-  return prisma.dayOff.update({
+  const updated = await prisma.dayOff.update({
     where: { id },
     data: { status, reviewedBy, reviewedAt: new Date() },
     select: { id: true, status: true, reviewedAt: true },
   })
+  await syncDayOffDebit(dayOff.id, dayOff.userId, dayOff.date, status === 'APPROVED', reviewedBy)
+  return updated
 }
