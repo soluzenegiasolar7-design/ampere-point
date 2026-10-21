@@ -20,6 +20,7 @@ import { env } from './config/env'
 import { initSocket } from './socket/socket.handler'
 import { setIo } from './socket/io'
 import { startPunchAlerts } from './jobs/punch-alerts'
+import { recalcRange } from './modules/time-entries/time-entries.service'
 import fs from 'fs'
 import path from 'path'
 
@@ -40,4 +41,9 @@ startPunchAlerts()
 const port = parseInt(process.env.PORT || '3002')
 httpServer.listen(port, '0.0.0.0', () => {
   console.log(`AmperePoint backend rodando na porta ${port}`)
+
+  // corrige horas do histórico (idempotente) — não bloqueia o boot
+  recalcRange(90)
+    .then(n => console.log(`[recalc] horas reprocessadas em ${n} dias de trabalho`))
+    .catch(e => console.error('[recalc] falha ao reprocessar horas:', e))
 })

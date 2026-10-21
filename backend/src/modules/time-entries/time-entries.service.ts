@@ -2,6 +2,7 @@ import { PunchType } from '@prisma/client'
 import { prisma } from '../../config/database'
 import { AppError } from '../../shared/errors/AppError'
 import { createLog } from '../gps-logs/gps-logs.service'
+import { randomUUID } from 'crypto'
 
 async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
   try {
@@ -18,6 +19,9 @@ async function reverseGeocode(lat: number, lon: number): Promise<string | null> 
 }
 
 const SEQUENCE: PunchType[] = ['ENTRADA', 'SAIDA_ALMOCO', 'RETORNO_ALMOCO', 'SAIDA']
+
+// bytes das fotos nunca vão nas listagens — são servidos por /photo/:id
+const OMIT_PHOTOS = { photoData: true, odometerPhotoData: true } as const
 
 // dia (BRT, UTC-3, sem horário de verão) contendo a data informada
 // ex: 22:12 local = 01:12 UTC do dia seguinte — tem que ser tratado como o mesmo dia
@@ -71,29 +75,43 @@ export async function punch(userId: string, data: {
     throw new AppError(`Próximo ponto esperado: ${nextExpected.replace('_', ' ')}`, 400)
   }
 
+  // ponto + selfie gravados na mesma operação: ou salva tudo, ou nada
   const { photoData, ...rest } = data
-  const entry = await prisma.timeEntry.create({ data: { userId, ...rest } })
+  const id = randomUUID()
+  const entry = await prisma.timeEntry.create({
+    data: {
+      id, userId, ...rest,
+      ...(photoData && {
+        photoData: photoData as unknown as Uint8Array<ArrayBuffer>,
+        photoUrl:  `/api/time-entries/photo/${id}`,
+      }),
+    },
+    omit: OMIT_PHOTOS,
+  })
 
   // Geocodificação reversa em background — não bloqueia a resposta
   reverseGeocode(data.latitude, data.longitude).then(address => {
     if (address) prisma.timeEntry.update({ where: { id: entry.id }, data: { address } }).catch(() => {})
   }).catch(() => {})
 
-  // Grava a localização do ponto no gpsLog para garantir que
-  // a posição final seja incluída no cálculo de KM do dia
-  await createLog(userId, {
-    latitude: data.latitude,
-    longitude: data.longitude,
-    accuracy: data.accuracy,
-  })
+  // Efeitos colaterais: uma falha aqui não pode derrubar um ponto já gravado
+  try {
+    // posição do ponto entra no gpsLog para o cálculo de KM do dia
+    await createLog(userId, { latitude: data.latitude, longitude: data.longitude, accuracy: data.accuracy })
+  } catch (e) { console.error(`[punch] falha ao gravar gpsLog (user ${userId}):`, e) }
 
-  // Atualiza status do WorkDay usando data BRT
-  const { dateKey } = brtTodayRange()
-  await prisma.workDay.upsert({
-    where: { userId_date: { userId, date: dateKey } },
-    update: { status: data.type === 'SAIDA' ? 'FORA' : 'EM_SERVICO' },
-    create: { userId, date: dateKey, status: 'EM_SERVICO' },
-  })
+  try {
+    const { dateKey } = brtTodayRange()
+    await prisma.workDay.upsert({
+      where: { userId_date: { userId, date: dateKey } },
+      update: { status: data.type === 'SAIDA' ? 'FORA' : 'EM_SERVICO' },
+      create: { userId, date: dateKey, status: 'EM_SERVICO' },
+    })
+  } catch (e) { console.error(`[punch] falha ao atualizar status do WorkDay (user ${userId}):`, e) }
+
+  try {
+    await recalcTotalMinutes(userId)
+  } catch (e) { console.error(`[punch] falha ao recalcular horas (user ${userId}):`, e) }
 
   return entry
 }
@@ -103,6 +121,7 @@ export async function listTodayEntries(userId: string) {
   return prisma.timeEntry.findMany({
     where: { userId, timestamp: { gte: start, lte: end } },
     orderBy: { timestamp: 'asc' },
+    omit: OMIT_PHOTOS,
   })
 }
 
@@ -112,6 +131,7 @@ export async function listEntriesByDate(userId: string, date: string) {
   return prisma.timeEntry.findMany({
     where: { userId, timestamp: { gte: d, lte: end } },
     orderBy: { timestamp: 'asc' },
+    omit: OMIT_PHOTOS,
     include: { user: { select: { name: true, unit: true } } },
   })
 }
@@ -122,6 +142,7 @@ export async function listEntriesByRange(userId: string, dateFrom: string, dateT
   return prisma.timeEntry.findMany({
     where: { userId, timestamp: { gte: start, lte: end } },
     orderBy: { timestamp: 'asc' },
+    omit: OMIT_PHOTOS,
     include: { user: { select: { name: true, unit: true } } },
   })
 }
@@ -131,6 +152,7 @@ export async function listAllTodayEntries() {
   return prisma.timeEntry.findMany({
     where: { timestamp: { gte: start, lte: end } },
     orderBy: { timestamp: 'desc' },
+    omit: OMIT_PHOTOS,
     include: { user: { select: { id: true, name: true, unit: true } } },
   })
 }
@@ -141,6 +163,7 @@ export async function listAllEntriesByDate(date: string) {
   return prisma.timeEntry.findMany({
     where: { timestamp: { gte: d, lte: end } },
     orderBy: { timestamp: 'desc' },
+    omit: OMIT_PHOTOS,
     include: { user: { select: { id: true, name: true, unit: true } } },
   })
 }
@@ -204,4 +227,20 @@ export async function updateEntryTimestamp(id: string, newTimestamp: string) {
   const newDay = ts.toLocaleDateString('en-CA', { timeZone: 'America/Recife' })
   if (newDay !== oldDay) await recalcTotalMinutes(entry.userId, ts)
   return updated
+}
+
+// reprocessa as horas de todos os dias com ponto no período (corrige o histórico)
+export async function recalcRange(days = 90) {
+  const since = new Date(Date.now() - days * 86400000)
+  const entries = await prisma.timeEntry.findMany({
+    where: { timestamp: { gte: since } },
+    select: { userId: true, timestamp: true },
+  })
+  const seen = new Map<string, { userId: string; ts: Date }>()
+  for (const e of entries) {
+    const key = `${e.userId}|${e.timestamp.toLocaleDateString('en-CA', { timeZone: 'America/Recife' })}`
+    if (!seen.has(key)) seen.set(key, { userId: e.userId, ts: e.timestamp })
+  }
+  for (const { userId, ts } of seen.values()) await recalcTotalMinutes(userId, ts)
+  return seen.size
 }

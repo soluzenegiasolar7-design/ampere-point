@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { punch, listTodayEntries, listAllTodayEntries, listAllEntriesByDate, listEntriesByDate, listEntriesByRange, nextPunchType, recalcTotalMinutes, deleteEntry, updateEntryTimestamp } from './time-entries.service'
+import { punch, listTodayEntries, listAllTodayEntries, listAllEntriesByDate, listEntriesByDate, listEntriesByRange, nextPunchType, recalcRange, deleteEntry, updateEntryTimestamp } from './time-entries.service'
 import { requireAuth, requireAuthPhoto, requireRole, AuthRequest } from '../auth/auth.middleware'
 import multer from 'multer'
 import { getIo } from '../../socket/io'
@@ -54,20 +54,8 @@ router.post('/', upload.single('photo'), async (req: Request, res: Response, nex
     const data = punchSchema.parse(req.body)
     const userId = (req as AuthRequest).userId
 
-    const entry = await punch(userId, { ...data, ipAddress: req.ip })
-
-    if (req.file?.buffer) {
-      await prisma.timeEntry.update({
-        where: { id: entry.id },
-        data: {
-          photoData: req.file.buffer as unknown as Uint8Array<ArrayBuffer>,
-          photoUrl:  `/api/time-entries/photo/${entry.id}`,
-        },
-      })
-      entry.photoUrl = `/api/time-entries/photo/${entry.id}`
-    }
-
-    recalcTotalMinutes(userId).catch(() => {})
+    const entry = await punch(userId, { ...data, ipAddress: req.ip, photoData: req.file?.buffer })
+    if (!req.file?.buffer) console.warn(`[punch] ponto ${entry.id} (${data.type}) chegou SEM selfie — user ${userId}`)
 
     const io = getIo()
     if (io) {
@@ -160,6 +148,14 @@ router.patch('/:id', requireRole('ADMIN', 'MANAGER'), async (req: Request, res: 
   try {
     const { timestamp } = z.object({ timestamp: z.string() }).parse(req.body)
     res.json(await updateEntryTimestamp(req.params.id as string, timestamp))
+  } catch (e) { next(e) }
+})
+
+// POST /api/time-entries/recalc?days=90 — reprocessa as horas do histórico (admin)
+router.post('/recalc', requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const days = Math.min(400, Math.max(1, Number(req.query.days) || 90))
+    res.json({ days, workDaysRecalculated: await recalcRange(days) })
   } catch (e) { next(e) }
 })
 

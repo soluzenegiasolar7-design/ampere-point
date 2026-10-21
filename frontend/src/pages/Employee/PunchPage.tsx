@@ -74,12 +74,19 @@ function useCamera(facing: 'user' | 'environment' = 'user') {
     setError(null)
     setReady(false)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } } })
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.onloadedmetadata = () => setReady(true)
-      }
+      // o <video> do modal pode ainda não estar montado quando a câmera libera
+      for (let i = 0; i < 50 && !videoRef.current; i++) await new Promise(r => setTimeout(r, 20))
+      const video = videoRef.current
+      if (!video) throw new Error('video element ausente')
+      video.srcObject = stream
+      // só libera o botão quando o vídeo já tem frame com dimensão real
+      const markReady = () => { if (video.videoWidth > 0) setReady(true) }
+      video.onloadeddata = markReady
+      video.onplaying = markReady
+      await video.play().catch(() => {})
+      markReady()
     } catch {
       setError('Não foi possível acessar a câmera. Verifique as permissões.')
     }
@@ -91,14 +98,27 @@ function useCamera(facing: 'user' | 'environment' = 'user') {
     setReady(false)
   }, [])
 
-  const capture = useCallback((): Promise<Blob | null> => new Promise(resolve => {
-    if (!videoRef.current || !canvasRef.current) return resolve(null)
+  // captura reduzida (máx. 960px) — upload leve mesmo em 3G/4G fraco
+  const capture = useCallback(async (): Promise<Blob | null> => {
+    const video = videoRef.current
     const c = canvasRef.current
-    c.width = videoRef.current.videoWidth
-    c.height = videoRef.current.videoHeight
-    c.getContext('2d')!.drawImage(videoRef.current, 0, 0)
-    c.toBlob(resolve, 'image/jpeg', 0.85)
-  }), [])
+    if (!video || !c) return null
+    for (let i = 0; i < 20 && video.videoWidth === 0; i++) await new Promise(r => setTimeout(r, 100))
+    if (video.videoWidth === 0) return null
+
+    const scale = Math.min(1, 960 / Math.max(video.videoWidth, video.videoHeight))
+    c.width  = Math.round(video.videoWidth * scale)
+    c.height = Math.round(video.videoHeight * scale)
+    c.getContext('2d')!.drawImage(video, 0, 0, c.width, c.height)
+
+    const blob = await new Promise<Blob | null>(res => c.toBlob(res, 'image/jpeg', 0.8))
+    if (blob && blob.size > 0) return blob
+    // fallback para navegadores em que toBlob falha
+    try {
+      const b = await (await fetch(c.toDataURL('image/jpeg', 0.8))).blob()
+      return b.size > 0 ? b : null
+    } catch { return null }
+  }, [])
 
   useEffect(() => () => { stop() }, [stop])
 
@@ -217,6 +237,10 @@ export default function PunchPage() {
     setLoading(true)
     try {
       const blob = await selfie.capture()
+      if (!blob) {
+        showToast('error', 'Não foi possível capturar a selfie. Tente novamente.')
+        return
+      }
       selfie.stop()
 
       const pos = await new Promise<GeolocationPosition>((res, rej) =>
@@ -234,7 +258,7 @@ export default function PunchPage() {
       form.append('latitude',  String(pos.coords.latitude))
       form.append('longitude', String(pos.coords.longitude))
       form.append('accuracy',  String(pos.coords.accuracy))
-      if (blob) form.append('photo', blob, 'selfie.jpg')
+      form.append('photo', blob, 'selfie.jpg')
 
       await api.post('/api/time-entries', form)
 
@@ -252,8 +276,10 @@ export default function PunchPage() {
       setStep('idle')
     } catch (e: any) {
       selfie.stop()
-      showToast('error', e.response?.data?.error || 'Erro ao registrar ponto')
+      const msg = e.response?.data?.error || e.response?.data?.message
+      showToast('error', msg || (e.response ? 'Erro ao registrar ponto' : 'Sem conexão. Verifique a internet e tente novamente.'))
       setStep('idle')
+      loadData() // se o ponto chegou a ser gravado, a tela reflete
     } finally {
       setLoading(false)
     }
@@ -700,7 +726,7 @@ export default function PunchPage() {
           ) : (
             <>
               <div className="flex-1 relative overflow-hidden">
-                <video ref={selfie.videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+                <video ref={selfie.videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
                 {!selfie.ready && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black">
                     <Spinner size="lg" className="text-amber-500" />
@@ -709,6 +735,11 @@ export default function PunchPage() {
                 <canvas ref={selfie.canvasRef} className="hidden" />
               </div>
               <div className="p-5 bg-black/80">
+                {toast?.type === 'error' && (
+                  <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl p-3 text-sm mb-3">
+                    <AlertCircle size={15} /> {toast.msg}
+                  </div>
+                )}
                 <Button
                   fullWidth size="lg" variant="success"
                   onClick={captureAndPunch}
@@ -810,7 +841,7 @@ export default function PunchPage() {
           ) : (
             <>
               <div className="flex-1 relative overflow-hidden">
-                <video ref={odo.videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+                <video ref={odo.videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
                 {!odo.ready && <div className="absolute inset-0 flex items-center justify-center bg-black"><Spinner size="lg" className="text-amber-500" /></div>}
                 <canvas ref={odo.canvasRef} className="hidden" />
               </div>
