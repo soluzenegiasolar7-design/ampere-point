@@ -8,6 +8,8 @@ import { HourBankList } from '../../components/shared/HourBankList'
 
 type HRTab = 'holerites' | 'ausencias' | 'ferias' | 'folgas' | 'ajustes' | 'banco'
 
+const ABSENCE_LABEL: Record<string, string> = { FALTA: 'Falta', ATESTADO: 'Atestado', ABONADA: 'Abonada' }
+
 const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
 function statusBadge(s: string) {
@@ -16,8 +18,14 @@ function statusBadge(s: string) {
   return <Badge variant="warning">Pendente</Badge>
 }
 
+// Campos "somente data" chegam como meia-noite UTC; formatar em UTC evita mostrar o dia anterior.
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('pt-BR')
+  return new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+}
+
+function fmtHours(h: number) {
+  const sign = h > 0 ? '+' : h < 0 ? '−' : ''
+  return `${sign}${Math.abs(h).toFixed(1).replace('.', ',')}h`
 }
 
 interface Employee { id: string; name: string; unit?: string }
@@ -60,6 +68,9 @@ export default function HRPanel({ employees }: Props) {
   const [doffUserId, setDoffUserId] = useState('')
   const [doffDate, setDoffDate] = useState('')
   const [doffReason, setDoffReason] = useState('')
+  const [doffBalance, setDoffBalance] = useState<{ balanceHours: number; contractHours: number } | null>(null)
+  const [doffMsg, setDoffMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [doffSaving, setDoffSaving] = useState(false)
 
   // Ajustes
   const [adjustments, setAdjustments] = useState<any[]>([])
@@ -147,12 +158,46 @@ export default function HRPanel({ employees }: Props) {
     } catch {}
   }
 
+  async function loadDoffBalance(userId: string) {
+    setDoffBalance(null)
+    if (!userId) return
+    try {
+      const r = await api.get(`/api/hour-bank/user/${userId}`)
+      setDoffBalance({ balanceHours: r.data.balanceHours, contractHours: r.data.contractHours })
+    } catch {}
+  }
+
+  useEffect(() => { loadDoffBalance(doffUserId) }, [doffUserId])
+
   async function createDayOff(e: React.FormEvent) {
     e.preventDefault()
+    setDoffSaving(true); setDoffMsg(null)
     try {
       await api.post('/api/day-offs', { userId: doffUserId, date: doffDate, reason: doffReason || undefined })
-      setDoffDate(''); setDoffReason(''); loadTab()
-    } catch {}
+      const hours = doffBalance?.contractHours ?? 8
+      setDoffMsg({ ok: true, text: `Folga lançada. ${fmtHours(-hours)} descontadas do banco de horas.` })
+      setDoffDate(''); setDoffReason('')
+      loadDoffBalance(doffUserId); loadTab()
+    } catch (err: any) {
+      setDoffMsg({ ok: false, text: err.response?.data?.error || 'Não foi possível lançar a folga' })
+    } finally { setDoffSaving(false) }
+  }
+
+  async function cancelDayOff(id: string) {
+    if (!window.confirm('Cancelar esta folga? As horas descontadas voltam para o banco de horas.')) return
+    await reviewItem('/api/day-offs', id, 'REJECTED')
+    loadDoffBalance(doffUserId)
+  }
+
+  async function openAbsenceAttachment(id: string) {
+    try {
+      const r = await api.get(`/api/absences/${id}/attachment`, { responseType: 'blob' })
+      const url = URL.createObjectURL(r.data)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch {
+      window.alert('Não foi possível abrir o anexo')
+    }
   }
 
   const brtTime = (ts: string) =>
@@ -302,9 +347,14 @@ export default function HRPanel({ employees }: Props) {
               <div key={a.id} className="flex items-center justify-between bg-slate-50 rounded-xl p-3">
                 <div>
                   <p className="text-sm font-medium text-slate-900">{a.user?.name}</p>
-                  <p className="text-xs text-slate-500">{fmtDate(a.date)} · {a.type}{a.reason ? ` · ${a.reason}` : ''}</p>
+                  <p className="text-xs text-slate-500">{fmtDate(a.date)} · {ABSENCE_LABEL[a.type] ?? a.type}{a.reason ? ` · ${a.reason}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {a.attachmentName && (
+                    <button onClick={() => openAbsenceAttachment(a.id)} className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 px-2 py-1 rounded-lg bg-orange-50">
+                      <FileText size={12} /> Ver anexo
+                    </button>
+                  )}
                   {statusBadge(a.status)}
                   {a.status === 'PENDING' && (
                     <>
@@ -378,7 +428,18 @@ export default function HRPanel({ employees }: Props) {
               <div><label className={labelCls}>Data</label><input type="date" value={doffDate} onChange={e => setDoffDate(e.target.value)} className={inputCls} required /></div>
             </div>
             <input type="text" placeholder="Motivo (opcional)" value={doffReason} onChange={e => setDoffReason(e.target.value)} className={inputCls} />
-            <Button type="submit" size="sm">Lançar</Button>
+            {doffBalance && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs bg-white border border-slate-200 rounded-xl px-3 py-2">
+                <span className="text-slate-500">Saldo atual <b className={doffBalance.balanceHours >= 0 ? 'text-emerald-700' : 'text-red-600'}>{fmtHours(doffBalance.balanceHours)}</b></span>
+                <span className="text-slate-500">Folga desconta <b className="text-slate-900">{fmtHours(-doffBalance.contractHours)}</b></span>
+                <span className="text-slate-500">Saldo após a folga <b className={doffBalance.balanceHours - doffBalance.contractHours >= 0 ? 'text-emerald-700' : 'text-red-600'}>{fmtHours(doffBalance.balanceHours - doffBalance.contractHours)}</b></span>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">A folga lançada aqui já entra aprovada e desconta a jornada do dia do banco de horas.</p>
+            <div className="flex items-center gap-3">
+              <Button type="submit" size="sm" loading={doffSaving}>Lançar folga</Button>
+              {doffMsg && <span className={`text-xs ${doffMsg.ok ? 'text-emerald-700' : 'text-red-600'}`}>{doffMsg.text}</span>}
+            </div>
           </form>
           <div className="space-y-2">
             {dayOffs.map((d: any) => (
@@ -389,6 +450,9 @@ export default function HRPanel({ employees }: Props) {
                 </div>
                 <div className="flex items-center gap-2">
                   {statusBadge(d.status)}
+                  {d.status === 'APPROVED' && (
+                    <button onClick={() => cancelDayOff(d.id)} title="Cancelar folga e devolver as horas" className="p-1 rounded-lg bg-slate-200 text-slate-600 hover:bg-red-100 hover:text-red-600 transition-colors"><Trash2 size={13} /></button>
+                  )}
                   {d.status === 'PENDING' && (
                     <>
                       <button onClick={() => reviewItem('/api/day-offs', d.id, 'APPROVED')} className="p-1 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"><Check size={13} /></button>

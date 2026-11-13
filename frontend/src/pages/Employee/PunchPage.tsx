@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Zap, LogOut, Clock, CheckCircle2, Navigation,
   Camera, Car, AlertCircle, ChevronRight, RefreshCw, X,
-  ChevronDown, FileText, Download, Sliders, TrendingUp
+  ChevronDown, FileText, Download, Sliders, TrendingUp, Paperclip
 } from 'lucide-react'
 import { api, photoUrl } from '../../services/api'
 import { useAuthStore } from '../../stores/auth.store'
@@ -144,6 +144,11 @@ export default function PunchPage() {
   const [hrLoading, setHrLoading] = useState(false)
   const [adjustForm, setAdjustForm] = useState({ date: '', punchType: 'ENTRADA', requestedTime: '', reason: '' })
   const [adjustLoading, setAdjustLoading] = useState(false)
+  const [myAbsences, setMyAbsences] = useState<any[]>([])
+  const [atestadoForm, setAtestadoForm] = useState({ date: '', reason: '' })
+  const [atestadoFile, setAtestadoFile] = useState<File | null>(null)
+  const [atestadoLoading, setAtestadoLoading] = useState(false)
+  const atestadoInputRef = useRef<HTMLInputElement>(null)
 
   // odômetro
   const [odoKm, setOdoKm] = useState('')
@@ -198,14 +203,16 @@ export default function PunchPage() {
   const loadHRData = useCallback(async () => {
     setHrLoading(true)
     try {
-      const [payslipsRes, hourBankRes, hourBankEntriesRes] = await Promise.all([
+      const [payslipsRes, hourBankRes, hourBankEntriesRes, absencesRes] = await Promise.all([
         api.get('/api/payslips/my'),
         api.get('/api/hour-bank/my'),
         api.get('/api/hour-bank/my/entries'),
+        api.get('/api/absences/my'),
       ])
       setPayslips(payslipsRes.data)
       setHourBank(hourBankRes.data)
       setHourBankEntries(hourBankEntriesRes.data)
+      setMyAbsences(absencesRes.data)
     } catch {
       // silent — toast only if user explicitly retries
     } finally {
@@ -373,6 +380,37 @@ export default function PunchPage() {
       showToast('error', err.response?.data?.error || 'Erro ao enviar solicitação')
     } finally {
       setAdjustLoading(false)
+    }
+  }
+
+  const submitAtestado = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!atestadoFile) {
+      showToast('error', 'Anexe a foto ou o PDF do atestado')
+      return
+    }
+    if (atestadoFile.size > 10 * 1024 * 1024) {
+      showToast('error', 'Arquivo muito grande (máximo 10 MB)')
+      return
+    }
+    setAtestadoLoading(true)
+    try {
+      const fd = new FormData()
+      fd.append('date', atestadoForm.date)
+      fd.append('type', 'ATESTADO')
+      if (atestadoForm.reason) fd.append('reason', atestadoForm.reason)
+      fd.append('attachment', atestadoFile)
+      await api.post('/api/absences', fd)
+      showToast('success', 'Atestado enviado! Aguarde a análise do gestor.')
+      setAtestadoForm({ date: '', reason: '' })
+      setAtestadoFile(null)
+      if (atestadoInputRef.current) atestadoInputRef.current.value = ''
+      const r = await api.get('/api/absences/my')
+      setMyAbsences(r.data)
+    } catch (err: any) {
+      showToast('error', err.response?.data?.error || 'Erro ao enviar atestado')
+    } finally {
+      setAtestadoLoading(false)
     }
   }
 
@@ -640,6 +678,65 @@ export default function PunchPage() {
                             >
                               <Download size={13} /> Baixar
                             </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Atestado */}
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                      <Paperclip size={13} /> Enviar Atestado
+                    </p>
+                    <form onSubmit={submitAtestado} className="space-y-3">
+                      <div>
+                        <label className="text-xs text-slate-500 block mb-1.5">Data do atestado *</label>
+                        <input
+                          type="date" required
+                          value={atestadoForm.date}
+                          onChange={e => setAtestadoForm(f => ({ ...f, date: e.target.value }))}
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-500 block mb-1.5">Foto ou PDF do atestado *</label>
+                        <input
+                          ref={atestadoInputRef}
+                          type="file" required
+                          accept="image/*,application/pdf"
+                          onChange={e => setAtestadoFile(e.target.files?.[0] ?? null)}
+                          className="w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-orange-50 file:px-3 file:py-2 file:text-orange-700 file:font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-500 block mb-1.5">Observação <span className="text-slate-600">(opcional)</span></label>
+                        <input
+                          type="text"
+                          value={atestadoForm.reason}
+                          onChange={e => setAtestadoForm(f => ({ ...f, reason: e.target.value }))}
+                          placeholder="Ex.: consulta médica, 1 dia de repouso"
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 transition-colors placeholder-slate-400"
+                        />
+                      </div>
+                      <Button type="submit" fullWidth loading={atestadoLoading} size="sm">
+                        <Paperclip size={14} /> Enviar Atestado
+                      </Button>
+                    </form>
+                    {myAbsences.length > 0 && (
+                      <div className="mt-3 space-y-1.5">
+                        <p className="text-xs text-slate-500">Enviados</p>
+                        {myAbsences.slice(0, 10).map((a: any) => (
+                          <div key={a.id} className="flex items-center justify-between bg-slate-100 rounded-lg px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="text-xs text-slate-600">
+                                {a.type === 'ATESTADO' ? 'Atestado' : a.type === 'FALTA' ? 'Falta' : 'Abonada'} · {new Date(a.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                              </p>
+                              {a.reviewNote && <p className="text-xs text-slate-500 truncate">Gestor: {a.reviewNote}</p>}
+                            </div>
+                            {a.status === 'APPROVED' ? <Badge variant="success">Aprovado</Badge>
+                              : a.status === 'REJECTED' ? <Badge variant="danger">Recusado</Badge>
+                              : <Badge variant="warning">Em análise</Badge>}
                           </div>
                         ))}
                       </div>

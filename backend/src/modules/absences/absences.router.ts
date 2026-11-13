@@ -2,7 +2,8 @@ import { Router, Request, Response, NextFunction } from 'express'
 import multer from 'multer'
 import { z } from 'zod'
 import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
-import { createAbsence, listMyAbsences, listAllAbsences, listUserAbsences, reviewAbsence } from './absences.service'
+import { AppError } from '../../shared/errors/AppError'
+import { createAbsence, listMyAbsences, listAllAbsences, listUserAbsences, reviewAbsence, getAbsenceAttachment } from './absences.service'
 
 const router = Router()
 router.use(requireAuth)
@@ -15,15 +16,28 @@ const createSchema = z.object({
   reason: z.string().optional(),
 })
 
+const ALLOWED_MIME = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+const MIME_BY_EXT: Record<string, string> = {
+  pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+  webp: 'image/webp', heic: 'image/heic', heif: 'image/heif',
+}
+
 router.post('/', upload.single('attachment'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const auth = req as AuthRequest
     const data = createSchema.parse(req.body)
-    const targetUserId = ['ADMIN', 'MANAGER'].includes(auth.userRole) && data.userId ? data.userId : auth.userId
+    const isManager = ['ADMIN', 'MANAGER'].includes(auth.userRole)
+    const targetUserId = isManager && data.userId ? data.userId : auth.userId
+    // Funcionário só pode enviar atestado, e precisa anexar o documento.
+    if (!isManager && !req.file) throw new AppError('Anexe a foto ou o PDF do atestado', 400)
+    const fileExt = req.file?.originalname.split('.').pop()?.toLowerCase() ?? ''
+    if (req.file && !ALLOWED_MIME.includes(req.file.mimetype) && !MIME_BY_EXT[fileExt]) {
+      throw new AppError('Formato não aceito. Envie foto (JPG, PNG, HEIC) ou PDF', 400)
+    }
     res.status(201).json(await createAbsence({
       userId: targetUserId,
       date: new Date(data.date),
-      type: data.type as any,
+      type: (isManager ? data.type : 'ATESTADO') as any,
       reason: data.reason,
       attachmentData: req.file?.buffer,
       attachmentName: req.file?.originalname,
@@ -34,6 +48,17 @@ router.post('/', upload.single('attachment'), async (req: Request, res: Response
 router.get('/my', async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(await listMyAbsences((req as AuthRequest).userId))
+  } catch (e) { next(e) }
+})
+
+router.get('/:id/attachment', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const auth = req as AuthRequest
+    const file = await getAbsenceAttachment(req.params.id as string, auth.userId, auth.userRole)
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+    res.setHeader('Content-Type', MIME_BY_EXT[ext] ?? 'application/octet-stream')
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(file.name)}"`)
+    res.send(file.data)
   } catch (e) { next(e) }
 })
 

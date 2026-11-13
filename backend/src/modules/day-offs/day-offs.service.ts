@@ -3,13 +3,21 @@ import { RequestStatus } from '@prisma/client'
 import { AppError } from '../../shared/errors/AppError'
 import { syncDayOffDebit } from '../hour-bank/hour-bank.service'
 
-export async function createDayOff(data: { userId: string; date: Date; reason?: string }) {
-  return prisma.dayOff.upsert({
+// Quando o gestor lança a folga ela já entra aprovada e debita do banco de horas na hora.
+// Quando o próprio funcionário solicita, fica pendente até o gestor aprovar.
+export async function createDayOff(data: { userId: string; date: Date; reason?: string; approvedBy?: string }) {
+  const status: RequestStatus = data.approvedBy ? 'APPROVED' : 'PENDING'
+  const review = data.approvedBy
+    ? { reviewedBy: data.approvedBy, reviewedAt: new Date() }
+    : { reviewedBy: null, reviewedAt: null }
+  const dayOff = await prisma.dayOff.upsert({
     where: { userId_date: { userId: data.userId, date: data.date } },
-    create: data,
-    update: { reason: data.reason, status: 'PENDING' },
+    create: { userId: data.userId, date: data.date, reason: data.reason, status, ...review },
+    update: { reason: data.reason, status, ...review },
     select: { id: true, userId: true, date: true, reason: true, status: true, createdAt: true },
   })
+  await syncDayOffDebit(dayOff.id, dayOff.userId, dayOff.date, status === 'APPROVED', data.approvedBy ?? data.userId)
+  return dayOff
 }
 
 export async function listMyDayOffs(userId: string) {

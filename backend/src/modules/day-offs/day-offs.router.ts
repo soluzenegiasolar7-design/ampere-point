@@ -16,8 +16,14 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const auth = req as AuthRequest
     const data = createSchema.parse(req.body)
-    const targetUserId = ['ADMIN', 'MANAGER'].includes(auth.userRole) && data.userId ? data.userId : auth.userId
-    res.status(201).json(await createDayOff({ userId: targetUserId, date: new Date(data.date), reason: data.reason }))
+    const isManager = ['ADMIN', 'MANAGER'].includes(auth.userRole)
+    const targetUserId = isManager && data.userId ? data.userId : auth.userId
+    res.status(201).json(await createDayOff({
+      userId: targetUserId,
+      date: new Date(data.date),
+      reason: data.reason,
+      approvedBy: isManager ? auth.userId : undefined,
+    }))
   } catch (e) { next(e) }
 })
 
