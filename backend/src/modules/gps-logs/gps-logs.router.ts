@@ -1,8 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { getTrailByDate, getTrailByRange, getTodayTrail } from './gps-logs.service'
+import { getTrailByDate, getTrailByRange, getTodayTrail, savePoints } from './gps-logs.service'
 import { requireAuth, requireRole, AuthRequest } from '../auth/auth.middleware'
-import { prisma } from '../../config/database'
 
 const router = Router()
 router.use(requireAuth)
@@ -21,19 +20,15 @@ router.post('/bulk', async (req: Request, res: Response, next: NextFunction) => 
     const userId = (req as AuthRequest).userId
     const logs = bulkSchema.parse(req.body)
 
-    await prisma.gpsLog.createMany({
-      data: logs.map(l => ({
-        userId,
-        latitude:  l.latitude,
-        longitude: l.longitude,
-        accuracy:  l.accuracy,
-        speed:     l.speed,
-        timestamp: new Date(l.timestamp),
-      })),
-      skipDuplicates: true,
-    })
+    const inserted = await savePoints(userId, logs.map(l => ({
+      latitude:  l.latitude,
+      longitude: l.longitude,
+      accuracy:  l.accuracy,
+      speed:     l.speed,
+      timestamp: new Date(l.timestamp),
+    })))
 
-    res.json({ synced: logs.length })
+    res.json({ synced: logs.length, inserted })
   } catch (e) { next(e) }
 })
 

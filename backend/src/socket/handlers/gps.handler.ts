@@ -1,5 +1,4 @@
 import { Server, Socket } from 'socket.io'
-import { createLog } from '../../modules/gps-logs/gps-logs.service'
 
 export function registerGpsHandlers(io: Server, socket: Socket) {
   const userId = socket.data.userId
@@ -10,12 +9,10 @@ export function registerGpsHandlers(io: Server, socket: Socket) {
     socket.join('tracking:room')
   }
 
-  socket.on('gps:update', async (data: { latitude: number; longitude: number; accuracy?: number; speed?: number }) => {
-    try {
-      await createLog(userId, data)
-      io.to('tracking:room').emit('gps:user_location', { userId, ...data, timestamp: new Date() })
-    } catch (e) {
-      console.error('gps:update error', e)
-    }
+  // Só repassa a posição ao vivo para o mapa do gestor. A gravação no banco é feita
+  // pelo POST /api/gps-logs/bulk (o app sempre enfileira e sincroniza cada ponto),
+  // então gravar aqui também duplicava todos os pontos.
+  socket.on('gps:update', (data: { latitude: number; longitude: number; accuracy?: number; speed?: number }) => {
+    io.to('tracking:room').emit('gps:user_location', { userId, ...data, timestamp: new Date() })
   })
 }

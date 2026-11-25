@@ -4,6 +4,8 @@ import { api } from '../services/api'
 
 const QUEUE_KEY = 'gps_offline_queue'
 const MAX_QUEUE  = 5000
+const FLUSH_INTERVAL_MS     = 30_000 // sincroniza a fila no máximo a cada 30s
+const FLUSH_CHUNK           = 1000
 
 interface GpsPoint {
   latitude:  number
@@ -21,14 +23,30 @@ function writeQueue(q: GpsPoint[]) {
   localStorage.setItem(QUEUE_KEY, JSON.stringify(q.slice(-MAX_QUEUE)))
 }
 
-async function flushQueue() {
-  const queue = readQueue()
-  if (queue.length === 0) return
+let flushing = false
+let lastFlushAt = 0
+
+async function flushQueue(force = false) {
+  // Um envio por vez, e não a cada ponto: antes cada leitura do GPS (~1/s)
+  // reenviava a fila inteira e, com o servidor lento, virava uma avalanche.
+  if (flushing) return
+  if (!force && Date.now() - lastFlushAt < FLUSH_INTERVAL_MS) return
+  flushing = true
+  lastFlushAt = Date.now()
   try {
-    await api.post('/api/gps-logs/bulk', queue)
-    writeQueue([])
+    while (true) {
+      const queue = readQueue()
+      if (queue.length === 0) break
+      const chunk = queue.slice(0, FLUSH_CHUNK)
+      await api.post('/api/gps-logs/bulk', chunk)
+      // remove só o que foi enviado (pontos novos podem ter chegado no meio)
+      const sent = new Set(chunk.map(p => p.timestamp))
+      writeQueue(readQueue().filter(p => !sent.has(p.timestamp)))
+    }
   } catch {
     // sem internet — tenta de novo na próxima vez
+  } finally {
+    flushing = false
   }
 }
 
@@ -38,9 +56,9 @@ export function useGPS(active: boolean) {
 
   // Sincroniza fila offline ao recuperar conexão
   useEffect(() => {
-    const onOnline = () => flushQueue()
+    const onOnline = () => flushQueue(true)
     window.addEventListener('online', onOnline)
-    flushQueue()
+    flushQueue(true)
     return () => window.removeEventListener('online', onOnline)
   }, [])
 
