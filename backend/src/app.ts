@@ -19,6 +19,9 @@ import timeAdjustmentsRouter from './modules/time-adjustments/time-adjustments.r
 import hourBankRouter from './modules/hour-bank/hour-bank.router'
 
 const app = express()
+// Railway fica na frente como proxy: sem isso todos os celulares aparecem com o mesmo IP
+// e dividem a mesma cota do rate limit (pode bloquear batida de ponto de todo mundo)
+app.set('trust proxy', 1)
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
 

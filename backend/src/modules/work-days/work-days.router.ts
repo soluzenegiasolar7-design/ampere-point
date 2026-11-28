@@ -185,8 +185,12 @@ router.patch('/today/odometer', upload.single('odometerPhoto'), async (req: Requ
     const userId = (req as AuthRequest).userId
     const phase = resolvePhase(req.body.phase)
     const { km: kmField, photoData: photoField, photoUrl: urlField, urlPath } = PHASE_FIELDS[phase]
-    const odometerKm = req.body.odometerKm != null ? parseFloat(req.body.odometerKm) : undefined
-    if (!odometerKm && !req.file) { res.status(400).json({ message: 'Informe km ou foto' }); return }
+    const parsedKm = req.body.odometerKm != null && req.body.odometerKm !== ''
+      ? parseFloat(String(req.body.odometerKm).replace(',', '.'))
+      : NaN
+    // 0 km é válido (ex.: entrada sem ter rodado); antes era recusado e o km se perdia
+    const odometerKm = Number.isFinite(parsedKm) && parsedKm >= 0 ? parsedKm : undefined
+    if (odometerKm == null && !req.file) { res.status(400).json({ message: 'Informe km ou foto' }); return }
 
     const { dateKey: dateOnly } = brtTodayRange()
     const wd = await prisma.workDay.upsert({

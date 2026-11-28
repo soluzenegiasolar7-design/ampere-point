@@ -269,17 +269,19 @@ export default function PunchPage() {
 
       await api.post('/api/time-entries', form)
 
+      let odoFailed = false
       if (isPrePunchOdo.current && odoKm) {
         const odoForm = new FormData()
         odoForm.append('odometerKm', odoKm)
         odoForm.append('phase', odoPhase)
         if (odoPhotoBlob) odoForm.append('odometerPhoto', odoPhotoBlob, 'odometer.jpg')
-        await api.patch('/api/work-days/today/odometer', odoForm).catch(() => {})
+        await api.patch('/api/work-days/today/odometer', odoForm).catch(() => { odoFailed = true })
       }
 
       isPrePunchOdo.current = false
       await loadData()
-      showToast('success', `${PUNCH_CONFIG[nextPunch!]?.label} registrado!`)
+      if (odoFailed) showToast('error', `${PUNCH_CONFIG[nextPunch!]?.label} registrado, mas o km não foi salvo. Lance o km de novo.`)
+      else showToast('success', `${PUNCH_CONFIG[nextPunch!]?.label} registrado!`)
       setStep('idle')
     } catch (e: any) {
       selfie.stop()
